@@ -128,6 +128,7 @@ public class InvariantConfigurator {
             private final Map<LocationVariable, JTerm> freeInvariantTerm = new LinkedHashMap<>();
 
 
+            private final JButton generateButton = new JButton("Generate");
             private final JButton applyButton = new JButton("Apply");
             private final JButton cancelButton = new JButton("Cancel");
             private final JButton storeButton = new JButton("Store");
@@ -202,10 +203,12 @@ public class InvariantConfigurator {
             private void initButtonPanel(JPanel buttonPanel) {
                 buttonPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
 
+                generateButton.addActionListener(this::generateActionPerformed);
                 applyButton.addActionListener(this::applyActionPerformed);
                 cancelButton.addActionListener(this::cancelActionPerformed);
                 storeButton.addActionListener(this::storeActionPerformed);
 
+                buttonPanel.add(generateButton);
                 buttonPanel.add(applyButton);
                 buttonPanel.add(storeButton);
                 buttonPanel.add(cancelButton);
@@ -662,6 +665,10 @@ public class InvariantConfigurator {
                 errorTextfield.setEditable(false);
                 errorTextfield.setMinimumSize(errorTextfield.getPreferredScrollableViewportSize());
                 return errorTextfield;
+            }
+
+            public void generateActionPerformed(ActionEvent e) {
+                //TODO: Add functionality to generate invariant
             }
 
             public void cancelActionPerformed(ActionEvent e) {
