@@ -13,23 +13,51 @@ import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
+import de.uka.ilkd.key.java.JavaTools;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.java.statement.LoopStatement;
+import de.uka.ilkd.key.java.statement.While;
 import de.uka.ilkd.key.ldt.HeapLDT;
 import de.uka.ilkd.key.ldt.JavaDLTheory;
 import de.uka.ilkd.key.logic.JTerm;
+import de.uka.ilkd.key.logic.JavaBlock;
 import de.uka.ilkd.key.logic.NamespaceSet;
+import de.uka.ilkd.key.logic.TermBuilder;
+import de.uka.ilkd.key.logic.op.JFunction;
+import de.uka.ilkd.key.logic.op.JModality;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.nparser.KeyIO;
+import de.uka.ilkd.key.parser.Location;
 import de.uka.ilkd.key.parser.ParserException;
 import de.uka.ilkd.key.pp.AbbrevMap;
 import de.uka.ilkd.key.pp.PrettyPrinter;
+import de.uka.ilkd.key.proof.Goal;
+import de.uka.ilkd.key.proof.Proof;
+import de.uka.ilkd.key.proof.TermProgramVariableCollector;
+import de.uka.ilkd.key.proof.calculus.JavaDLSequentKit;
+import de.uka.ilkd.key.proof.init.ProofInputException;
 import de.uka.ilkd.key.proof.io.OutputStreamProofSaver;
+import de.uka.ilkd.key.proof.io.ProofSaver;
+import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
+import de.uka.ilkd.key.rule.LoopInvariantBuiltInRuleApp;
+import de.uka.ilkd.key.speclang.BasicLoopSpecificationImpl;
+import de.uka.ilkd.key.speclang.LoopSpecImpl;
 import de.uka.ilkd.key.speclang.LoopSpecification;
+import de.uka.ilkd.key.strategy.JavaCardDLStrategyFactory;
+import de.uka.ilkd.key.strategy.StrategyProperties;
 import de.uka.ilkd.key.util.InfFlowSpec;
 
+import de.uka.ilkd.key.util.ProofStarter;
+import de.uka.ilkd.key.util.SideProofUtil;
+import org.key_project.logic.Name;
+import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
+import org.key_project.prover.engine.ProofSearchInformation;
 import org.key_project.prover.rules.RuleAbortException;
+import org.key_project.prover.sequent.PosInOccurrence;
+import org.key_project.prover.sequent.Sequent;
+import org.key_project.prover.sequent.SequentFormula;
+import org.key_project.prover.sequent.SequentKit;
 import org.key_project.util.collection.ImmutableList;
 import org.key_project.util.collection.ImmutableSLList;
 
@@ -91,8 +119,9 @@ public class InvariantConfigurator {
      * @throws RuleAbortException if the user cancelled the dialog
      */
     public LoopSpecification getLoopInvariant(final LoopSpecification loopInv,
-            final Services services, final boolean requiresVariant,
-            final List<LocationVariable> heapContext) throws RuleAbortException {
+                                              final Services services, final boolean requiresVariant,
+                                              final List<LocationVariable> heapContext,
+                                              final LoopInvariantBuiltInRuleApp loopApp) throws RuleAbortException {
         // Check if there is a LoopInvariant
         if (loopInv == null) {
             return null;
@@ -123,7 +152,7 @@ public class InvariantConfigurator {
             private final Map<LocationVariable, JTerm> modifiableTerm = new LinkedHashMap<>();
             private final Map<LocationVariable, JTerm> freeModifiableTerm = new LinkedHashMap<>();
             private final Map<LocationVariable, ImmutableList<InfFlowSpec>> infFlowSpecs =
-                new LinkedHashMap<>();
+                    new LinkedHashMap<>();
             private final Map<LocationVariable, JTerm> invariantTerm = new LinkedHashMap<>();
             private final Map<LocationVariable, JTerm> freeInvariantTerm = new LinkedHashMap<>();
 
@@ -162,7 +191,7 @@ public class InvariantConfigurator {
                 JPanel leftPanel = new JPanel();
                 leftPanel.setLayout(new BorderLayout());
                 leftPanel.add(new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(loopRep),
-                    new JScrollPane(errorPanel)));
+                        new JScrollPane(errorPanel)));
 
                 final int charXWidth = loopRep.getFontMetrics(loopRep.getFont()).charWidth('X');
                 final int fontHeight = loopRep.getFontMetrics(loopRep.getFont()).getHeight();
@@ -170,7 +199,7 @@ public class InvariantConfigurator {
                 leftPanel.setPreferredSize(new Dimension(charXWidth * 40, fontHeight * 15));
 
                 JSplitPane split =
-                    new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true, leftPanel, inputPane);
+                        new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true, leftPanel, inputPane);
 
                 getContentPane().add(split, BorderLayout.CENTER);
 
@@ -245,7 +274,7 @@ public class InvariantConfigurator {
                 for (LocationVariable heap : services.getTypeConverter().getHeapLDT()
                         .getAllHeaps()) {
                     final JTerm invariant =
-                        loopInv.getInvariant(heap, loopInv.getInternalSelfTerm(), atPres, services);
+                            loopInv.getInvariant(heap, loopInv.getInternalSelfTerm(), atPres, services);
 
                     if (invariant == null) {
                         // FIXME check again and think what is the default for savedHeap
@@ -260,8 +289,8 @@ public class InvariantConfigurator {
                 for (LocationVariable heap : services.getTypeConverter().getHeapLDT()
                         .getAllHeaps()) {
                     final JTerm modifiable =
-                        loopInv.getModifiable(heap, loopInv.getInternalSelfTerm(), atPres,
-                            services);
+                            loopInv.getModifiable(heap, loopInv.getInternalSelfTerm(), atPres,
+                                    services);
 
                     if (modifiable == null) {
                         // FIXME check again and think what is the default for savedHeap
@@ -274,7 +303,7 @@ public class InvariantConfigurator {
 
                 loopInvTexts[VAR_IDX] = new LinkedHashMap<>();
                 final JTerm variant =
-                    loopInv.getVariant(loopInv.getInternalSelfTerm(), atPres, services);
+                        loopInv.getVariant(loopInv.getInternalSelfTerm(), atPres, services);
                 if (variant == null) {
                     loopInvTexts[VAR_IDX].put(DEFAULT, "");
                 } else {
@@ -286,7 +315,7 @@ public class InvariantConfigurator {
                 for (LocationVariable heap : services.getTypeConverter().getHeapLDT()
                         .getAllHeaps()) {
                     final ImmutableList<InfFlowSpec> infFlowSpecs = loopInv.getInfFlowSpecs(heap,
-                        loopInv.getInternalSelfTerm(), atPres, services);
+                            loopInv.getInternalSelfTerm(), atPres, services);
 
                     if (infFlowSpecs == null) {
                         loopInvTexts[IF_PRE_IDX].put(heap.toString(), "true");
@@ -304,7 +333,7 @@ public class InvariantConfigurator {
                 for (LocationVariable heap : services.getTypeConverter().getHeapLDT()
                         .getAllHeaps()) {
                     final ImmutableList<InfFlowSpec> infFlowSpecs = loopInv.getInfFlowSpecs(heap,
-                        loopInv.getInternalSelfTerm(), atPres, services);
+                            loopInv.getInternalSelfTerm(), atPres, services);
 
                     if (infFlowSpecs == null) {
                         loopInvTexts[IF_POST_IDX].put(heap.toString(), "true");
@@ -322,7 +351,7 @@ public class InvariantConfigurator {
                 for (LocationVariable heap : services.getTypeConverter().getHeapLDT()
                         .getAllHeaps()) {
                     final ImmutableList<InfFlowSpec> infFlowSpecs = loopInv.getInfFlowSpecs(heap,
-                        loopInv.getInternalSelfTerm(), atPres, services);
+                            loopInv.getInternalSelfTerm(), atPres, services);
 
                     if (infFlowSpecs == null) {
                         loopInvTexts[IF_OO_IDX].put(heap.toString(), "true");
@@ -375,7 +404,7 @@ public class InvariantConfigurator {
                 Map<String, String> invs = invariants.get(i)[INV_IDX];
                 for (String k : invs.keySet()) {
                     String title = format(INVARIANTTITLE,
-                        k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
+                            k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
                     JTextArea textArea = createInputTextArea(title, invs.get(k));
                     setInvariantListener(textArea, k, i);
                     invPane.add(k, textArea);
@@ -385,7 +414,7 @@ public class InvariantConfigurator {
                 Map<String, String> mods = invariants.get(i)[MOD_IDX];
                 for (String k : mods.keySet()) {
                     String title = format(MODIFIABLETITLE,
-                        k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
+                            k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
                     JTextArea textArea = createInputTextArea(title, mods.get(k));
                     setModifiableListener(textArea, k, i);
                     modPane.add(k, textArea);
@@ -395,7 +424,7 @@ public class InvariantConfigurator {
                 Map<String, String> resps = invariants.get(i)[IF_PRE_IDX];
                 for (String k : resps.keySet()) {
                     String title = format(IF_PRE_TITLE,
-                        k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
+                            k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
                     JTextArea textArea = createInputTextArea(title, resps.get(k));
                     setInfFlowPreExpsListener(textArea, k, i);
                     respPane.add(k, textArea);
@@ -405,7 +434,7 @@ public class InvariantConfigurator {
                 Map<String, String> postExps = invariants.get(i)[IF_POST_IDX];
                 for (String k : postExps.keySet()) {
                     String title = format(IF_POST_TITLE,
-                        k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
+                            k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
                     JTextArea textArea = createInputTextArea(title, postExps.get(k));
                     setInfFlowPostExpsListener(textArea, k, i);
                     ifPostPane.add(k, textArea);
@@ -415,14 +444,14 @@ public class InvariantConfigurator {
                 Map<String, String> ifNewObjects = invariants.get(i)[IF_OO_IDX];
                 for (String k : ifNewObjects.keySet()) {
                     String title = format(IF_OO_TITLE,
-                        k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
+                            k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
                     JTextArea textArea = createInputTextArea(title, ifNewObjects.get(k));
                     setInfFlowNewObsListener(textArea, k, i);
                     ifNewObjectsPane.add(k, textArea);
                 }
 
                 JTextArea vararea = createInputTextArea(format(VARIANTTITLE, ""),
-                    invariants.get(i)[VAR_IDX].get(DEFAULT));
+                        invariants.get(i)[VAR_IDX].get(DEFAULT));
                 setVariantListener(vararea, DEFAULT, i);
 
                 panel.add(invPane);
@@ -450,7 +479,7 @@ public class InvariantConfigurator {
             public JTextArea createInputTextArea(String title, String text) {
                 JTextArea inputTextArea = new JTextArea(text);
                 inputTextArea.setBorder(BorderFactory.createTitledBorder(
-                    BorderFactory.createLineBorder(Color.DARK_GRAY), title));
+                        BorderFactory.createLineBorder(Color.DARK_GRAY), title));
                 inputTextArea.setEditable(true);
                 return inputTextArea;
             }
@@ -577,10 +606,137 @@ public class InvariantConfigurator {
                 return loopRep;
             }
 
+            public void generateActionPerformed(ActionEvent e) {
+                //TODO: Add functionality to generate invariant
+
+                //Get Verification conditions
+                //Step 1: Take the sequent of the current proof and include it into a fresh side proof
+
+                //need: Services
+                ProofEnvironment proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
+                Services envServices = proofEnv.getServicesForEnvironment();
+                TermBuilder envTermBuilder = envServices.getTermBuilder();
+                ProofStarter proofStarter = new ProofStarter(false);
+                //TODO: Handle NullPointer Exception
+                Sequent runningSequent = services.getProof().openGoals().head().sequent();
+                Sequent sideSequent = JavaDLSequentKit.createAnteSequent(runningSequent.antecedent().asList());
+
+
+                List<LoopSpecification> loopSpecs = new ArrayList<>();
+                Set<LocationVariable>  locationVariableSet = new HashSet<>();
+
+                //Collect all programm variables, as we need it for the fresh invariant
+                for (SequentFormula sf: runningSequent.asList()) {
+                    TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
+                    sf.formula().execPostOrder(pvc);
+                    locationVariableSet.addAll(pvc.result());
+                }
+
+                LocationVariable[] locationVariables = locationVariableSet.toArray(new LocationVariable[0]);
+                Sort[] locationVariableSorts =  new Sort[locationVariables.length];
+
+                for (int i = 0; i < locationVariables.length; i++) {
+                    locationVariableSorts[i] = locationVariables[i].sort();
+                }
+
+                for (SequentFormula sf: runningSequent.succedent()) {
+                    Term fml = sf.formula();
+                    //goBelowUpdates returns a pair of updates and what is below updates
+                    var updateTermPair = TermBuilder.goBelowUpdates2((JTerm) fml);
+                    JavaBlock termJavaBlock = updateTermPair.second.javaBlock();
+                    if (!termJavaBlock.isEmpty()) {
+                        var activeStatement = JavaTools.getActiveStatement(termJavaBlock);
+                        if (activeStatement instanceof While) {
+                            JFunction placeholderInvariant = new JFunction(
+                                    new Name(envTermBuilder.newName("freshInv")),
+                                    JavaDLTheory.FORMULA,
+                                    locationVariableSorts
+                            );
+                            var invariantFormula = envTermBuilder.prog(
+                                    ((JModality) updateTermPair.second.op()).kind(),
+                                    updateTermPair.second.javaBlock(),
+                                    envTermBuilder.func(placeholderInvariant) //include locationVariables as parameters here somehow
+                            );
+                            BasicLoopSpecificationImpl loopSpec = new BasicLoopSpecificationImpl((While) activeStatement, invariantFormula);
+                        }
+                    } else {
+                        sideSequent = sideSequent.addFormula(sf, false, true).sequent();
+                    }
+
+                }
+
+
+                //Let it run further until symbolic execution is finished
+
+
+                /*PosInOccurrence posInOccurrence = loopApp.posInOccurrence();
+                posInOccurrence.sequentFormula().formula().sub(1).getChild(1).getCursor();
+                JTerm formula = (JTerm) posInOccurrence.sequentFormula().formula();
+                TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
+                formula.execPostOrder(pvc);
+                pvc.result();
+
+                ProofEnvironment env = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
+
+                ProofStarter ps = new ProofStarter(false);
+                Services envServices = env.getServicesForEnvironment();
+
+                //Sequent seq = JavaDLSequentKit.getInstance().getEmptySequent();
+
+                TermBuilder tb = envServices.getTermBuilder();
+                //seq = seq.addFormula(new SequentFormula(tb.tt()), true, true).sequent();
+                runningSequent = services.getProof().openGoals().head().sequent();
+
+                sideSequent = JavaDLSequentKit.createAnteSequent(runningSequent.antecedent().asList());
+                for (SequentFormula sf: runningSequent.succedent()) {
+                    Term fml = sf.formula();
+                    var updTermPair = tb.goBelowUpdates2((JTerm) fml);
+                    if (!updTermPair.second.javaBlock().isEmpty()) {
+                        if (JavaTools.getActiveStatement(updTermPair.second.javaBlock()) instanceof While) {
+                            var placeholder = new JFunction(new Name(tb.newName("MyPred")), JavaDLTheory.FORMULA);
+
+                            var newFml = tb.prog(((JModality)updTermPair.second.op()).kind(), updTermPair.second.javaBlock(),
+                                    tb.func(placeholder));
+                            newFml = tb.applySequential(updTermPair.first, newFml);
+//                            System.out.println(newFml);
+                            sideSequent = sideSequent.addFormula(new SequentFormula(newFml), false, true).sequent();
+                        }
+                    } else {
+                        sideSequent = sideSequent.addFormula(sf, false, true).sequent();
+                    }
+                }
+
+                System.out.println(ProofSaver.printAnything(sideSequent, envServices));
+
+                try {
+                    ps.init(sideSequent, env, "Inv generstion");
+                } catch (ProofInputException ex) {
+                    throw new RuntimeException(ex);
+                }
+                Proof sideProof = ps.getProof();
+                Services sideServices = sideProof.getServices();
+//               LoopSpecImpl ls = null;
+//               sideServices.getSpecificationRepository().addLoopInvariant(ls);
+                JavaCardDLStrategyFactory factory = new JavaCardDLStrategyFactory();
+                StrategyProperties properties = services.getProof().getSettings().getStrategySettings().getActiveStrategyProperties();
+                properties.setProperty(StrategyProperties.LOOP_OPTIONS_KEY, StrategyProperties.LOOP_SCOPE_INV_TACLET);
+                ps.setStrategy(factory.create(sideProof, properties));
+
+                ps.setMaxRuleApplications(5);
+                ProofSearchInformation<Proof, Goal> pi = ps.start();
+
+                Goal g = sideProof.openGoals().head();
+*/
+
+
+                // sideProof.openGoals();
+
+            }
+
             private JPanel createErrorPanel(Map<String, String> invMsgs,
-                    Map<String, Color> invColors, Map<String, String> modMsgs,
-                    Map<String, Color> modColors, Map<String, String> varMsgs,
-                    Map<String, Color> varColors) {
+                                            Map<String, Color> invColors, Map<String, String> modMsgs,
+                                            Map<String, Color> modColors, Map<String, String> varMsgs,
+                                            Map<String, Color> varColors) {
                 JPanel panel = new JPanel();
                 panel.setLayout(new BoxLayout(panel, BoxLayout.PAGE_AXIS));
 
@@ -590,16 +746,16 @@ public class InvariantConfigurator {
                         .getAllHeaps()) {
 
                     final LocationVariable baseHeap =
-                        services.getTypeConverter().getHeapLDT().getHeap();
+                            services.getTypeConverter().getHeapLDT().getHeap();
                     final String k = heap.name().toString();
                     String title =
-                        format("Invariant%s - Status: ", heap == baseHeap ? "" : "[" + k + "]");
+                            format("Invariant%s - Status: ", heap == baseHeap ? "" : "[" + k + "]");
                     String errorMessage = invMsgs == null ? "OK" : invMsgs.get(k);
                     Color invColor = invColors == null ? COLOR_SUCCESS : invColors.get(k);
                     JTextArea textArea = createErrorTextField(title, errorMessage, invColor);
                     invPane.add(k, textArea);
                     title =
-                        format("Modifiable%s - Status: ", heap == baseHeap ? "" : "[" + k + "]");
+                            format("Modifiable%s - Status: ", heap == baseHeap ? "" : "[" + k + "]");
                     String errorMessage2 = modMsgs == null ? "OK" : modMsgs.get(k);
                     Color modColor = modColors == null ? COLOR_SUCCESS : modColors.get(k);
                     textArea = createErrorTextField(title, errorMessage2, modColor);
@@ -610,13 +766,13 @@ public class InvariantConfigurator {
                 heapPanes.add(invPane);
                 heapPanes.add(modPane);
                 JTextArea varErrorArea = createErrorTextField("Variant - Status",
-                    varMsgs.get(DEFAULT), varColors.get(DEFAULT));
+                        varMsgs.get(DEFAULT), varColors.get(DEFAULT));
                 panel.add(varErrorArea);
 
                 final int charXWidth =
-                    varErrorArea.getFontMetrics(varErrorArea.getFont()).charWidth('X');
+                        varErrorArea.getFontMetrics(varErrorArea.getFont()).charWidth('X');
                 final int fontHeight =
-                    varErrorArea.getFontMetrics(varErrorArea.getFont()).getHeight();
+                        varErrorArea.getFontMetrics(varErrorArea.getFont()).getHeight();
 
                 varErrorArea.setMinimumSize(new Dimension(charXWidth * 80, fontHeight * 5));
                 varErrorArea.setPreferredSize(new Dimension(charXWidth * 80, fontHeight * 10));
@@ -645,13 +801,13 @@ public class InvariantConfigurator {
             }
 
             private void setOK(Map<String, String> msgMap, Map<String, Color> colors,
-                    String setOn) {
+                               String setOn) {
                 msgMap.put(setOn, "OK");
                 colors.put(setOn, COLOR_SUCCESS);
             }
 
             private void setError(Map<String, String> msgMap, Map<String, Color> colors,
-                    String setOn, String errorMsg) {
+                                  String setOn, String errorMsg) {
                 msgMap.put(setOn, errorMsg);
                 colors.put(setOn, COLOR_ERROR);
             }
@@ -665,10 +821,7 @@ public class InvariantConfigurator {
                 errorTextfield.setEditable(false);
                 errorTextfield.setMinimumSize(errorTextfield.getPreferredScrollableViewportSize());
                 return errorTextfield;
-            }
 
-            public void generateActionPerformed(ActionEvent e) {
-                //TODO: Add functionality to generate invariant
             }
 
             public void cancelActionPerformed(ActionEvent e) {
@@ -822,7 +975,7 @@ public class InvariantConfigurator {
 
                 if (requirementsAreMet) {
                     newInvariant = loopInv.configurate(invariantTerm, freeInvariantTerm,
-                        modifiableTerm, freeModifiableTerm, infFlowSpecs, variantTerm);
+                            modifiableTerm, freeModifiableTerm, infFlowSpecs, variantTerm);
                     return true;
                 } else {
                     return false;
@@ -900,8 +1053,8 @@ public class InvariantConfigurator {
             }
 
             private void updateErrorPanel(Map<String, String> invErrors, Map<String, Color> invCols,
-                    Map<String, String> modErrors, Map<String, Color> modCols,
-                    Map<String, String> varErrors, Map<String, Color> varCols) {
+                                          Map<String, String> modErrors, Map<String, Color> modCols,
+                                          Map<String, String> varErrors, Map<String, Color> varCols) {
                 boolean reeinit = true;
                 boolean errorFound = false;
 
@@ -955,7 +1108,7 @@ public class InvariantConfigurator {
                     con.remove(errorPanel);
                     Dimension d = errorPanel.getPreferredSize();
                     errorPanel = createErrorPanel(invErrors, invCols, modErrors, modCols, varErrors,
-                        varCols);
+                            varCols);
                     updateActiveTabs(heapContext);
                     errorPanel.setPreferredSize(d);
                     con.add(errorPanel, BorderLayout.SOUTH);
@@ -971,7 +1124,7 @@ public class InvariantConfigurator {
             protected JTerm parseInvariant(LocationVariable heap) {
                 index = inputPane.getSelectedIndex();
                 JTerm result =
-                    parser.parseExpression(invariants.get(index)[INV_IDX].get(heap.toString()));
+                        parser.parseExpression(invariants.get(index)[INV_IDX].get(heap.toString()));
                 if (result.sort() != JavaDLTheory.FORMULA) {
                     throw newUnexpectedTypeException(JavaDLTheory.FORMULA, result.sort());
                 }
@@ -1002,11 +1155,11 @@ public class InvariantConfigurator {
             protected ImmutableList<InfFlowSpec> parseInfFlowSpec(LocationVariable heap) {
                 index = inputPane.getSelectedIndex();
                 final String preExpsAsString =
-                    invariants.get(index)[IF_PRE_IDX].get(heap.toString());
+                        invariants.get(index)[IF_PRE_IDX].get(heap.toString());
                 final String postExpsAsString =
-                    invariants.get(index)[IF_POST_IDX].get(heap.toString());
+                        invariants.get(index)[IF_POST_IDX].get(heap.toString());
                 final String newObjectsAsString =
-                    invariants.get(index)[IF_OO_IDX].get(heap.toString());
+                        invariants.get(index)[IF_OO_IDX].get(heap.toString());
                 // TODO: allow more than one term
                 JTerm preExps = parser.parseExpression(preExpsAsString);
                 // TODO: allow more than one term
@@ -1016,8 +1169,8 @@ public class InvariantConfigurator {
 
                 return ImmutableSLList.<InfFlowSpec>nil()
                         .append(new InfFlowSpec(ImmutableSLList.<JTerm>nil().append(preExps),
-                            ImmutableSLList.<JTerm>nil().append(postExps),
-                            ImmutableSLList.<JTerm>nil().append(newObjects)));
+                                ImmutableSLList.<JTerm>nil().append(postExps),
+                                ImmutableSLList.<JTerm>nil().append(newObjects)));
             }
 
             protected JTerm parseVariant() {
@@ -1045,6 +1198,6 @@ public class InvariantConfigurator {
 
     private static RuntimeException newUnexpectedTypeException(Sort expected, Sort actual) {
         return new IllegalStateException(
-            format("Entered formula is expected of type %s but got %s.", expected, actual));
+                format("Entered formula is expected of type %s but got %s.", expected, actual));
     }
 }

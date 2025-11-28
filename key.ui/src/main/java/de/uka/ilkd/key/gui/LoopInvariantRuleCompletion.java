@@ -50,7 +50,7 @@ public class LoopInvariantRuleCompletion implements InteractiveRuleApplicationCo
                 null);
             try {
                 inv = InvariantConfigurator.getInstance().getLoopInvariant(inv, services, false,
-                    loopApp.getHeapContext());
+                    loopApp.getHeapContext(), loopApp);
             } catch (RuleAbortException e) {
                 return null;
             }
@@ -62,7 +62,7 @@ public class LoopInvariantRuleCompletion implements InteractiveRuleApplicationCo
                 // get invariant or variant interactively
                 try {
                     inv = InvariantConfigurator.getInstance().getLoopInvariant(inv, services,
-                        requiresVariant, loopApp.getHeapContext());
+                        requiresVariant, loopApp.getHeapContext(), loopApp);
                 } catch (RuleAbortException e) {
                     return null;
                 }
