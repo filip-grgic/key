@@ -621,7 +621,7 @@ public class InvariantConfigurator {
                 Sequent runningSequent = services.getProof().openGoals().head().sequent();
                 Sequent sideSequent = JavaDLSequentKit.createAnteSequent(runningSequent.antecedent().asList());
 
-
+                //Collecting the loopSpecifications for all loops in the program
                 List<LoopSpecification> loopSpecs = new ArrayList<>();
                 Set<LocationVariable>  locationVariableSet = new HashSet<>();
 
@@ -634,13 +634,17 @@ public class InvariantConfigurator {
 
                 LocationVariable[] locationVariables = locationVariableSet.toArray(new LocationVariable[0]);
                 Sort[] locationVariableSorts =  new Sort[locationVariables.length];
+                JTerm[] predicateParameters = new JTerm[locationVariables.length];
 
                 for (int i = 0; i < locationVariables.length; i++) {
                     locationVariableSorts[i] = locationVariables[i].sort();
+                    predicateParameters[i] = envTermBuilder.var(locationVariables[i]);
                 }
+
 
                 for (SequentFormula sf: runningSequent.succedent()) {
                     Term fml = sf.formula();
+                    SequentFormula sfToAdd = sf;
                     //goBelowUpdates returns a pair of updates and what is below updates
                     var updateTermPair = TermBuilder.goBelowUpdates2((JTerm) fml);
                     JavaBlock termJavaBlock = updateTermPair.second.javaBlock();
@@ -654,17 +658,54 @@ public class InvariantConfigurator {
                             );
                             var invariantFormula = envTermBuilder.prog(
                                     ((JModality) updateTermPair.second.op()).kind(),
-                                    updateTermPair.second.javaBlock(),
-                                    envTermBuilder.func(placeholderInvariant) //include locationVariables as parameters here somehow
+                                    termJavaBlock,
+                                    envTermBuilder.func(placeholderInvariant, predicateParameters)
                             );
+
+
+                            //TODO: Check whether that is necessary
+                            invariantFormula = envTermBuilder.applySequential(updateTermPair.first, invariantFormula);
+
                             BasicLoopSpecificationImpl loopSpec = new BasicLoopSpecificationImpl((While) activeStatement, invariantFormula);
+                            loopSpecs.add(loopSpec);
+                            sfToAdd = new SequentFormula(invariantFormula);
                         }
-                    } else {
-                        sideSequent = sideSequent.addFormula(sf, false, true).sequent();
+
                     }
+                    sideSequent = sideSequent.addFormula(sfToAdd, false, true).sequent();
 
                 }
 
+                System.out.println(ProofSaver.printAnything(sideSequent, envServices));
+
+                try {
+                    proofStarter.init(sideSequent, proofEnv, "Invariant Generation");
+                } catch (ProofInputException ex) {
+                    //TODO: Solve gracefully
+                    throw new RuntimeException(ex);
+                }
+
+                Proof sideProof = proofStarter.getProof();
+                Services sideServices = sideProof.getServices();
+
+                for (LoopSpecification loopSpec: loopSpecs) {
+                    sideServices.getSpecificationRepository().addLoopInvariant(loopSpec);
+                }
+
+                //freshInv cannot be found in the NameRecorder of sideServices
+
+
+                JavaCardDLStrategyFactory factory = new JavaCardDLStrategyFactory();
+                StrategyProperties properties = services.getProof().getSettings().getStrategySettings().getActiveStrategyProperties();
+                properties.setProperty(StrategyProperties.LOOP_OPTIONS_KEY, StrategyProperties.LOOP_SCOPE_INV_TACLET);
+                proofStarter.setStrategy(factory.create(sideProof, properties));
+
+                proofStarter.setMaxRuleApplications(5);
+                ProofSearchInformation<Proof, Goal> pi = proofStarter.start();
+
+                for(Goal g: pi.getProof().openGoals()) {
+                    System.out.println(ProofSaver.printAnything(g, sideServices));
+                }
 
                 //Let it run further until symbolic execution is finished
 
