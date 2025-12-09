@@ -666,7 +666,8 @@ public class InvariantConfigurator {
                             //TODO: Check whether that is necessary
                             invariantFormula = envTermBuilder.applySequential(updateTermPair.first, invariantFormula);
 
-                            BasicLoopSpecificationImpl loopSpec = new BasicLoopSpecificationImpl((While) activeStatement, invariantFormula);
+//                            BasicLoopSpecificationImpl loopSpec = new BasicLoopSpecificationImpl((While) activeStatement, invariantFormula);
+                            BasicLoopSpecificationImpl loopSpec = new BasicLoopSpecificationImpl((While) activeStatement, envTermBuilder.func(placeholderInvariant, predicateParameters));
                             loopSpecs.add(loopSpec);
                             sfToAdd = new SequentFormula(invariantFormula);
                         }
@@ -676,7 +677,7 @@ public class InvariantConfigurator {
 
                 }
 
-                System.out.println(ProofSaver.printAnything(sideSequent, envServices));
+//                System.out.println(ProofSaver.printAnything(sideSequent, envServices));
 
                 try {
                     proofStarter.init(sideSequent, proofEnv, "Invariant Generation");
@@ -694,18 +695,19 @@ public class InvariantConfigurator {
 
                 //freshInv cannot be found in the NameRecorder of sideServices
 
-
-                JavaCardDLStrategyFactory factory = new JavaCardDLStrategyFactory();
+                JavaCardDLStrategyFactory strategyFactory = new JavaCardDLStrategyFactory();
                 StrategyProperties properties = services.getProof().getSettings().getStrategySettings().getActiveStrategyProperties();
                 properties.setProperty(StrategyProperties.LOOP_OPTIONS_KEY, StrategyProperties.LOOP_SCOPE_INV_TACLET);
-                proofStarter.setStrategy(factory.create(sideProof, properties));
+                proofStarter.setStrategy(strategyFactory.create(sideProof, properties));
 
-                proofStarter.setMaxRuleApplications(5);
+                proofStarter.setMaxRuleApplications(1000);
                 ProofSearchInformation<Proof, Goal> pi = proofStarter.start();
 
                 for(Goal g: pi.getProof().openGoals()) {
                     System.out.println(ProofSaver.printAnything(g, sideServices));
                 }
+
+                System.out.println(pi.getProof());
 
                 //Let it run further until symbolic execution is finished
 
