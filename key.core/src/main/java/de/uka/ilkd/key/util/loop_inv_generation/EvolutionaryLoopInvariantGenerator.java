@@ -54,6 +54,8 @@ public class EvolutionaryLoopInvariantGenerator {
         TermBuilder envTermBuilder = envServices.getTermBuilder();
         Sequent runningSequent = services.getProof().openGoals().head().sequent();
 
+        collectAllTerms(runningSequent);
+
 
         // Get all program variables and extract their sorts for the fresh invariant
         LocationVariable[] locationVariables = collectAllProgramVariables(runningSequent);
@@ -91,10 +93,10 @@ public class EvolutionaryLoopInvariantGenerator {
 
         ImmutableList<Goal> openGoals = pi.getProof().openGoals();
 
-        for(int goalIndex = 0; goalIndex < openGoals.size(); goalIndex++) {
-            System.out.printf("Goal %d ------------------------------------------------------%n", goalIndex);
-            System.out.println(ProofSaver.printAnything(openGoals.get(goalIndex).node().sequent(), sideServices));
-        }
+//        for(int goalIndex = 0; goalIndex < openGoals.size(); goalIndex++) {
+//            System.out.printf("Goal %d ------------------------------------------------------%n", goalIndex);
+//            System.out.println(ProofSaver.printAnything(openGoals.get(goalIndex).node().sequent(), sideServices));
+//        }
 
         //get goals into a digestible form
 
@@ -112,6 +114,19 @@ public class EvolutionaryLoopInvariantGenerator {
         }
 
         return locationVariableSet.toArray(new LocationVariable[0]);
+    }
+
+    private Term[] collectAllTerms(Sequent sequent) {
+        Set<Term> termSet = new HashSet<>();
+
+        for (SequentFormula sf: sequent.asList()) {
+            TermCollector termCollector = new TermCollector(services);
+            sf.formula().execPostOrder(termCollector);
+            termSet.addAll(termCollector.result());
+            System.out.printf("Found terms: %s\n", termCollector.result());
+        }
+
+        return termSet.toArray(new Term[0]);
     }
 
     private Sequent createSideproofSequent(Sequent sequent, TermBuilder envTermBuilder, Sort[] predicateParameterSorts,
