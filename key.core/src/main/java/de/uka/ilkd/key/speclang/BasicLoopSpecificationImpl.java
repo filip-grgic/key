@@ -27,10 +27,12 @@ public class BasicLoopSpecificationImpl implements LoopSpecification {
 
     private final LoopStatement loop;
     private final JTerm loopInv;
+    private final JTerm modifiable;
 
-    public BasicLoopSpecificationImpl(LoopStatement loop, JTerm loopInv) {
+    public BasicLoopSpecificationImpl(LoopStatement loop, JTerm loopInv, JTerm modifiable) {
         this.loop = loop;
         this.loopInv = loopInv;
+        this.modifiable = modifiable;
     }
 
     @Override
@@ -70,17 +72,17 @@ public class BasicLoopSpecificationImpl implements LoopSpecification {
 
     @Override
     public JTerm getModifiable(LocationVariable heap, JTerm selfTerm, Map<LocationVariable, JTerm> atPres, Services services) {
-        return null;
+        return modifiable;
     }
 
     @Override
     public JTerm getModifiable(JTerm selfTerm, Map<LocationVariable, JTerm> atPres, Services services) {
-        return null;
+        return modifiable;
     }
 
     @Override
     public JTerm getFreeModifiable(LocationVariable heap, JTerm selfTerm, Map<LocationVariable, JTerm> atPres, Services services) {
-        return null;
+        return modifiable;
     }
 
     @Override
@@ -115,7 +117,7 @@ public class BasicLoopSpecificationImpl implements LoopSpecification {
 
     @Override
     public JTerm getModifiable() {
-        return null;
+        return modifiable;
     }
 
     @Override
