@@ -10,6 +10,7 @@ import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.op.JFunction;
 import de.uka.ilkd.key.logic.op.JModality;
 import de.uka.ilkd.key.logic.op.LocationVariable;
+import de.uka.ilkd.key.logic.sort.ProgramSVSort;
 import de.uka.ilkd.key.proof.Goal;
 import de.uka.ilkd.key.proof.Proof;
 import de.uka.ilkd.key.proof.TermProgramVariableCollector;
@@ -17,6 +18,17 @@ import de.uka.ilkd.key.proof.calculus.JavaDLSequentKit;
 import de.uka.ilkd.key.proof.init.ProofInputException;
 import de.uka.ilkd.key.proof.io.ProofSaver;
 import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
+import de.uka.ilkd.key.settings.DefaultSMTSettings;
+import de.uka.ilkd.key.settings.NewSMTTranslationSettings;
+import de.uka.ilkd.key.settings.ProofDependentSMTSettings;
+import de.uka.ilkd.key.settings.ProofIndependentSMTSettings;
+import de.uka.ilkd.key.smt.SMTProblem;
+import de.uka.ilkd.key.smt.SMTSettings;
+import de.uka.ilkd.key.smt.SMTSolver;
+import de.uka.ilkd.key.smt.SolverLauncher;
+import de.uka.ilkd.key.smt.solvertypes.SolverType;
+import de.uka.ilkd.key.smt.solvertypes.SolverTypeImplementation;
+import de.uka.ilkd.key.smt.solvertypes.SolverTypes;
 import de.uka.ilkd.key.speclang.BasicLoopSpecificationImpl;
 import de.uka.ilkd.key.speclang.LoopSpecification;
 import de.uka.ilkd.key.strategy.JavaCardDLStrategyFactory;
@@ -27,6 +39,7 @@ import org.key_project.logic.Name;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
 import org.key_project.prover.engine.ProofSearchInformation;
+import org.key_project.prover.sequent.Semisequent;
 import org.key_project.prover.sequent.Sequent;
 import org.key_project.prover.sequent.SequentFormula;
 import org.key_project.util.collection.ImmutableList;
@@ -39,23 +52,80 @@ import java.util.Set;
 public class EvolutionaryLoopInvariantGenerator {
 
     private final Services services;
+    private Term[] sequentTerms;
+    private static final SolverType Z3_SOLVER = SolverTypes.getSolverTypes().stream()
+            .filter(it -> it.getClass().equals(SolverTypeImplementation.class)
+                    && it.getName().equals("Z3"))
+            .findFirst().orElse(null);
 
     public EvolutionaryLoopInvariantGenerator(Services services) {
         this.services = services;
     }
 
     public void generateLoopInvariant() {
-        JTerm[] verificationConditions = generateVerificationConditions();
+//        ImmutableList<Goal> verificationConditions = generateVerificationConditions();
+
+//        SMTProblem smtProblem = new SMTProblem(verificationConditions.get(0));
+
+
+        /*
+        Test the following SMT problem:
+        (set-logic QF_LIA)
+        (declare-const x Int)
+        (declare-const y Int)
+        (assert (=> (and (= 3 (+ x y)) (= 2 x)) (= 1 y)))
+        (check-sat)
+        (exit)
+         */
+        TermBuilder tb = services.getTermBuilder();
+        LocationVariable x = tb.locationVariable("x", ProgramSVSort.VARIABLE, true);
+        LocationVariable y = tb.locationVariable("y", ProgramSVSort.VARIABLE, true);
+        JTerm xVar = tb.var(x);
+        JTerm yVar = tb.var(y);
+        Term antecedent1 = tb.equals(tb.add(xVar, yVar), tb.zTerm(3));
+        Term antecedent2 = tb.equals(xVar, tb.zTerm(2));
+        Term succedentTerm = tb.equals(yVar, tb.zTerm(1));
+
+        ImmutableList<SequentFormula> antecedent = ImmutableList.of(new SequentFormula(antecedent1), new SequentFormula(antecedent2));
+        ImmutableList<SequentFormula> succedent = ImmutableList.of(new SequentFormula(succedentTerm));
+
+        Sequent sequent = JavaDLSequentKit.createSequent(antecedent, succedent);
+
+        ProofEnvironment proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
+        ProofStarter proofStarter = new ProofStarter(false);
+        try {
+            proofStarter.init(sequent, proofEnv, "Invariant Generation");
+        } catch (ProofInputException ex) {
+            //TODO: Solve gracefully
+            throw new RuntimeException(ex);
+        }
+
+        Proof sideProof = proofStarter.getProof();
+        Services sideServices = sideProof.getServices();
+
+        SMTProblem smtProblem = new SMTProblem(sequent, sideServices);
+        SMTSettings settings = new DefaultSMTSettings(
+                sideProof.getSettings().getSMTSettings(),
+//                ProofDependentSMTSettings.getDefaultSettingsData(),
+                ProofIndependentSMTSettings.getDefaultSettingsData(),
+                new NewSMTTranslationSettings(),
+                sideProof
+        );
+        SolverLauncher launcher = new SolverLauncher(settings);
+        launcher.launch(smtProblem, sideServices, Z3_SOLVER);
+
+        System.out.printf("SMT Problem result: %s%n", smtProblem.getFinalResult());
+
+
     }
 
-    private JTerm[] generateVerificationConditions() {
+    private ImmutableList<Goal> generateVerificationConditions() {
         ProofEnvironment proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
         Services envServices = proofEnv.getServicesForEnvironment();
         TermBuilder envTermBuilder = envServices.getTermBuilder();
         Sequent runningSequent = services.getProof().openGoals().head().sequent();
 
-        collectAllTerms(runningSequent);
-
+        sequentTerms = collectAllTerms(runningSequent);
 
         // Get all program variables and extract their sorts for the fresh invariant
         LocationVariable[] locationVariables = collectAllProgramVariables(runningSequent);
@@ -88,19 +158,10 @@ public class EvolutionaryLoopInvariantGenerator {
         }
 
         prepareProof(proofStarter, sideProof);
-
         ProofSearchInformation<Proof, Goal> pi = proofStarter.start();
 
-        ImmutableList<Goal> openGoals = pi.getProof().openGoals();
-
-//        for(int goalIndex = 0; goalIndex < openGoals.size(); goalIndex++) {
-//            System.out.printf("Goal %d ------------------------------------------------------%n", goalIndex);
-//            System.out.println(ProofSaver.printAnything(openGoals.get(goalIndex).node().sequent(), sideServices));
-//        }
-
-        //get goals into a digestible form
-
-        return new JTerm[0];
+        //Verification Conditions are the open goals that are still left
+        return pi.getProof().openGoals();
     }
 
     private LocationVariable[] collectAllProgramVariables(Sequent sequent) {
@@ -120,10 +181,9 @@ public class EvolutionaryLoopInvariantGenerator {
         Set<Term> termSet = new HashSet<>();
 
         for (SequentFormula sf: sequent.asList()) {
-            TermCollector termCollector = new TermCollector(services);
+            TermCollector termCollector = new TermCollector();
             sf.formula().execPostOrder(termCollector);
             termSet.addAll(termCollector.result());
-            System.out.printf("Found terms: %s\n", termCollector.result());
         }
 
         return termSet.toArray(new Term[0]);

@@ -3,7 +3,6 @@ package de.uka.ilkd.key.util.loop_inv_generation;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.DefaultVisitor;
 import de.uka.ilkd.key.logic.op.*;
-import de.uka.ilkd.key.proof.io.ProofSaver;
 import org.key_project.logic.Term;
 import org.key_project.logic.op.Operator;
 
@@ -13,18 +12,12 @@ public class TermCollector implements DefaultVisitor {
 
     private final HashSet<Term> result = new LinkedHashSet<>();
     private final HashMap<Term, List<Term>> parentsMap = new HashMap<>();
-    private final Services services;
     private final List<Class<? extends Operator>> allowedOperators = Arrays.asList(
             Junctor.class, Quantifier.class, Equality.class, JFunction.class, SortDependingFunction.class
     );
     private final List<Class<? extends Operator>> forbiddenOperators = Arrays.asList(
          JModality.class, UpdateApplication.class
     );
-
-    public TermCollector(Services services) {
-        this.services = services;
-
-    }
 
     @Override
     public void visit(Term visited) {
@@ -46,10 +39,6 @@ public class TermCollector implements DefaultVisitor {
             }
             parentsMap.get(visited.sub(i)).add(visited);
         }
-
-        System.out.printf("Visiting of type %s: ---------------------------------------------------%n%s%n ",
-                visited.op().getClass(), ProofSaver.printAnything(visited, services));
-
     }
 
     public HashSet<Term> result() {
