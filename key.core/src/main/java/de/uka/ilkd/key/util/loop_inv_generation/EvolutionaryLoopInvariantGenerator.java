@@ -78,8 +78,9 @@ public class EvolutionaryLoopInvariantGenerator {
         (exit)
          */
         TermBuilder tb = services.getTermBuilder();
-        LocationVariable x = tb.locationVariable("x", ProgramSVSort.VARIABLE, true);
-        LocationVariable y = tb.locationVariable("y", ProgramSVSort.VARIABLE, true);
+        Sort integerSort = services.getTypeConverter().getIntegerLDT().targetSort();
+        LocationVariable x = tb.locationVariable("x", integerSort, true);
+        LocationVariable y = tb.locationVariable("y", integerSort, true);
         JTerm xVar = tb.var(x);
         JTerm yVar = tb.var(y);
         Term antecedent1 = tb.equals(tb.add(xVar, yVar), tb.zTerm(3));
