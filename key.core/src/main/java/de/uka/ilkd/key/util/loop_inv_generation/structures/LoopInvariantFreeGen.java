@@ -10,28 +10,17 @@ import org.key_project.logic.Name;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
 
-import java.util.HashSet;
-import java.util.Set;
+public class LoopInvariantFreeGen extends LoopInvariantGen {
 
-public class LoopInvariantFreeGen {
-
-    private Term term;
-    private boolean affirmative;
     private final Services services;
-    private final Set<Name> programVariableNameSet;
 
     public LoopInvariantFreeGen(Services services, Term term) {
+        super();
         this.services = services;
-        this.programVariableNameSet = new HashSet<>();
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
 
         // Check whether term is negated and save non-negated term
-        affirmative = true;
-        Term nonNegatedTerm = term;
-        if (term.op().equals(Junctor.NOT)) {
-            affirmative = false;
-            nonNegatedTerm = term.sub(0);
-        }
+        Term nonNegatedTerm = extractedNonNegatedTerm(term);
 
         // Check whether the operator is < or <= as per normalisation
         if (!(nonNegatedTerm.op().equals(integerLDT.getLessThan()) || nonNegatedTerm.op().equals(integerLDT.getLessOrEquals()))) {
@@ -59,28 +48,6 @@ public class LoopInvariantFreeGen {
     }
 
     /**
-     * Inverts the negation of the term that is represented by the gen.
-     */
-    public void negate() {
-        affirmative = !affirmative;
-    }
-
-    /**
-     * Signals, whether the term in the gen is negated or.
-     * @return true, if there is a negation symbol, false otherwise
-     */
-    public boolean isNegated() {
-        return !affirmative;
-    }
-
-    /**
-     * @return the non-negated term in the gen
-     */
-    public Term getTerm() {
-        return term;
-    }
-
-    /**
      * @return the left sub term of the gen's term
      */
     public Term getLeft() {
@@ -95,24 +62,11 @@ public class LoopInvariantFreeGen {
     }
 
     /**
-     * Checks whether the term in the gen contains the given program variable by checking whether the name exists
-     * in the gen's variable namespace
-     * @param programVariable that should be checked whether it is contained
-     * @return true if there exists a variable with the same name in the gen, false if otherwise
-     */
-    public boolean containsProgramVariable(LocationVariable programVariable) {
-        if (programVariable == null) {
-            return false;
-        }
-
-        return programVariableNameSet.contains(programVariable.name());
-    }
-
-    /**
      * Replace all occurrences of oldVariable with newVariable in the term.
      * @param oldVariable the variable that should be replaced
      * @param newVariable the variable that should replace oldVariable
      */
+    @Override
     public void replaceProgramVariable(LocationVariable oldVariable, LocationVariable newVariable) {
         if (!containsProgramVariable(oldVariable) || oldVariable == null || newVariable == null) {
             return;
@@ -140,5 +94,16 @@ public class LoopInvariantFreeGen {
         }
 
         return services.getTermFactory().createTerm(term.op(), newSubs);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof LoopInvariantFreeGen other)) {
+            return false;
+        } else if (this == obj) {
+            return true;
+        }
+
+        return term.equals(other.term) && affirmative == other.affirmative;
     }
 }

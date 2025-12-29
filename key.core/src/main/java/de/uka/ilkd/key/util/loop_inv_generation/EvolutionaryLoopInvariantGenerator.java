@@ -63,59 +63,63 @@ public class EvolutionaryLoopInvariantGenerator {
     }
 
     public void generateLoopInvariant() {
-//        ImmutableList<Goal> verificationConditions = generateVerificationConditions();
+        ImmutableList<Goal> verificationConditions = generateVerificationConditions();
 
+        for (Goal goal: verificationConditions) {
+            System.out.println("-------------------------------------------------------");
+            System.out.println(ProofSaver.printAnything(goal.node().sequent(), services));
+        }
 //        SMTProblem smtProblem = new SMTProblem(verificationConditions.get(0));
 
 
-        /*
-        Test the following SMT problem:
-        (set-logic QF_LIA)
-        (declare-const x Int)
-        (declare-const y Int)
-        (assert (=> (and (= 3 (+ x y)) (= 2 x)) (= 1 y)))
-        (check-sat)
-        (exit)
-         */
-        TermBuilder tb = services.getTermBuilder();
-        Sort integerSort = services.getTypeConverter().getIntegerLDT().targetSort();
-        LocationVariable x = tb.locationVariable("x", integerSort, true);
-        LocationVariable y = tb.locationVariable("y", integerSort, true);
-        JTerm xVar = tb.var(x);
-        JTerm yVar = tb.var(y);
-        Term antecedent1 = tb.equals(tb.add(xVar, yVar), tb.zTerm(3));
-        Term antecedent2 = tb.equals(xVar, tb.zTerm(2));
-        Term succedentTerm = tb.equals(yVar, tb.zTerm(1));
-
-        ImmutableList<SequentFormula> antecedent = ImmutableList.of(new SequentFormula(antecedent1), new SequentFormula(antecedent2));
-        ImmutableList<SequentFormula> succedent = ImmutableList.of(new SequentFormula(succedentTerm));
-
-        Sequent sequent = JavaDLSequentKit.createSequent(antecedent, succedent);
-
-        ProofEnvironment proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
-        ProofStarter proofStarter = new ProofStarter(false);
-        try {
-            proofStarter.init(sequent, proofEnv, "Invariant Generation");
-        } catch (ProofInputException ex) {
-            //TODO: Solve gracefully
-            throw new RuntimeException(ex);
-        }
-
-        Proof sideProof = proofStarter.getProof();
-        Services sideServices = sideProof.getServices();
-
-        SMTProblem smtProblem = new SMTProblem(sequent, sideServices);
-        SMTSettings settings = new DefaultSMTSettings(
-                sideProof.getSettings().getSMTSettings(),
-//                ProofDependentSMTSettings.getDefaultSettingsData(),
-                ProofIndependentSMTSettings.getDefaultSettingsData(),
-                new NewSMTTranslationSettings(),
-                sideProof
-        );
-        SolverLauncher launcher = new SolverLauncher(settings);
-        launcher.launch(smtProblem, sideServices, Z3_SOLVER);
-
-        System.out.printf("SMT Problem result: %s%n", smtProblem.getFinalResult());
+//        /*
+//        Test the following SMT problem:
+//        (set-logic QF_LIA)
+//        (declare-const x Int)
+//        (declare-const y Int)
+//        (assert (=> (and (= 3 (+ x y)) (= 2 x)) (= 1 y)))
+//        (check-sat)
+//        (exit)
+//         */
+//        TermBuilder tb = services.getTermBuilder();
+//        Sort integerSort = services.getTypeConverter().getIntegerLDT().targetSort();
+//        LocationVariable x = tb.locationVariable("x", integerSort, true);
+//        LocationVariable y = tb.locationVariable("y", integerSort, true);
+//        JTerm xVar = tb.var(x);
+//        JTerm yVar = tb.var(y);
+//        Term antecedent1 = tb.equals(tb.add(xVar, yVar), tb.zTerm(3));
+//        Term antecedent2 = tb.equals(xVar, tb.zTerm(2));
+//        Term succedentTerm = tb.equals(yVar, tb.zTerm(1));
+//
+//        ImmutableList<SequentFormula> antecedent = ImmutableList.of(new SequentFormula(antecedent1), new SequentFormula(antecedent2));
+//        ImmutableList<SequentFormula> succedent = ImmutableList.of(new SequentFormula(succedentTerm));
+//
+//        Sequent sequent = JavaDLSequentKit.createSequent(antecedent, succedent);
+//
+//        ProofEnvironment proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
+//        ProofStarter proofStarter = new ProofStarter(false);
+//        try {
+//            proofStarter.init(sequent, proofEnv, "Invariant Generation");
+//        } catch (ProofInputException ex) {
+//            //TODO: Solve gracefully
+//            throw new RuntimeException(ex);
+//        }
+//
+//        Proof sideProof = proofStarter.getProof();
+//        Services sideServices = sideProof.getServices();
+//
+//        SMTProblem smtProblem = new SMTProblem(sequent, sideServices);
+//        SMTSettings settings = new DefaultSMTSettings(
+//                sideProof.getSettings().getSMTSettings(),
+////                ProofDependentSMTSettings.getDefaultSettingsData(),
+//                ProofIndependentSMTSettings.getDefaultSettingsData(),
+//                new NewSMTTranslationSettings(),
+//                sideProof
+//        );
+//        SolverLauncher launcher = new SolverLauncher(settings);
+//        launcher.launch(smtProblem, sideServices, Z3_SOLVER);
+//
+//        System.out.printf("SMT Problem result: %s%n", smtProblem.getFinalResult());
 
 
     }
