@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-only */
 package de.uka.ilkd.key.logic;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -105,6 +106,25 @@ public final class TermFactory {
 
     public JTerm createTerm(Operator op, ImmutableArray<TermLabel> labels) {
         return createTerm(op, NO_SUBTERMS, null, labels);
+    }
+
+    public JTerm createTerm(JTerm term) {
+        Operator op = term.op();
+        ImmutableArray<QuantifiableVariable> boundVars = term.boundVars();
+        ImmutableArray<TermLabel> labels = term.getLabels();
+
+        if (term.subs().isEmpty()) {
+            return createTerm(op, NO_SUBTERMS, boundVars, labels);
+        }
+
+        List<JTerm> newSubs = new ArrayList<>();
+        for (JTerm sub : term.subs()) {
+            newSubs.add(createTerm(sub));
+        }
+
+        ImmutableArray<JTerm> immutableNewSubs = new ImmutableArray<>(newSubs);
+
+        return createTerm(op, immutableNewSubs, boundVars, labels);
     }
 
     // -------------------------------------------------------------------------

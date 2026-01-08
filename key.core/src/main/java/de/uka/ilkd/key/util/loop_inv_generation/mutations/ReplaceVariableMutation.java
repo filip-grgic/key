@@ -29,6 +29,7 @@ public class ReplaceVariableMutation extends Mutation {
                 genomeLocVariableName = genomePotentialVariableName;
                 break;
             }
+            genomeSetIndex--;
         }
 
         for (LocationVariable globalPotentialVariable: programVariableSet) {
@@ -36,6 +37,7 @@ public class ReplaceVariableMutation extends Mutation {
                 globalLocVariable = globalPotentialVariable;
                 break;
             }
+            globalSetIndex--;
         }
 
         genome.replaceProgramVariable(genomeLocVariableName, globalLocVariable);

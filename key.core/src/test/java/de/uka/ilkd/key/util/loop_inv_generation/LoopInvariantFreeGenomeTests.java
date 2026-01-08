@@ -378,5 +378,9 @@ public class LoopInvariantFreeGenomeTests {
         assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
         assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
     }
+    @Test
+    public void testCombine_positive() {
+
+    }
 
 }

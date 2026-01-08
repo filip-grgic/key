@@ -3,6 +3,7 @@ package de.uka.ilkd.key.util.loop_inv_generation.structures;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.ldt.IntegerLDT;
 import de.uka.ilkd.key.logic.JTerm;
+import de.uka.ilkd.key.logic.TermFactory;
 import de.uka.ilkd.key.logic.op.Junctor;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.proof.TermProgramVariableCollector;
@@ -19,10 +20,12 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
     public LoopInvariantFreeGen(Services services, Term term) {
         super();
         this.services = services;
+        TermFactory termFactory = services.getTermFactory();
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        Term clonedTerm = termFactory.createTerm((JTerm) term);
 
         // Check whether term is negated and save non-negated term
-        Term nonNegatedTerm = extractedNonNegatedTerm(term);
+        Term nonNegatedTerm = extractedNonNegatedTerm(clonedTerm);
 
         // Check whether the operator is < or <= as per normalisation
         if (!(nonNegatedTerm.op().equals(integerLDT.getLessThan()) || nonNegatedTerm.op().equals(integerLDT.getLessOrEquals()))) {
@@ -43,10 +46,15 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
 
         // Collect all program variables
         TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
-        term.execPostOrder(pvc);
+        nonNegatedTerm.execPostOrder(pvc);
         programVariableNameSet.addAll(pvc.result().stream().map(LocationVariable::name).toList());
 
         this.term = nonNegatedTerm;
+    }
+
+    public LoopInvariantFreeGen(LoopInvariantFreeGen other) {
+        this(other.services, other.term);
+        this.affirmative = other.affirmative;
     }
 
     /**
@@ -70,6 +78,9 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
      */
     @Override
     public void replaceProgramVariable(LocationVariable oldVariable, LocationVariable newVariable) {
+        if (oldVariable == null) {
+            return;
+        }
         replaceProgramVariable(oldVariable.name(), newVariable);
     }
 
@@ -118,5 +129,11 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         LoopInvariantFreeGen newGen = new LoopInvariantFreeGen(services, this.term);
         newGen.affirmative = affirmative;
         return newGen;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s%s",
+                this.affirmative ? "NOT " : "", this.term);
     }
 }

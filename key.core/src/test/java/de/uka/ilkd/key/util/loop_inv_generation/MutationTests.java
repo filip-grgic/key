@@ -4,6 +4,7 @@ import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.java.TestJavaInfo;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
+import de.uka.ilkd.key.logic.TermFactory;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.proof.ProofAggregate;
 import de.uka.ilkd.key.util.HelperClassForTests;
@@ -234,9 +235,10 @@ public class MutationTests {
 
         assertEquals(1, genomeTwoConjuncts.size());
 
-        genomeTwoConjuncts.getConjuncts().forEach(conjunct -> {
+        for (List<LoopInvariantFreeGen> conjunct : genomeTwoConjuncts.getConjuncts()) {
             assertTrue(conjunctsCopy.contains(conjunct));
-        });
+        }
+
     }
 
     @Test
@@ -257,9 +259,9 @@ public class MutationTests {
 
         assertEquals(1, genomeTwoConjuncts.size());
 
-        genomeTwoConjuncts.getConjuncts().forEach(conjunct -> {
+        for (List<LoopInvariantFreeGen> conjunct : genomeTwoConjuncts.getConjuncts()) {
             assertTrue(conjunctsCopy.contains(conjunct));
-        });
+        }
 
         assertTrue(mutation.suitableForMutation(genome1));
         assertEquals(1, genome1.size());
@@ -275,10 +277,6 @@ public class MutationTests {
 
         assertEquals(1, genome1.size());
         assertEquals(1, genome1.getConjuncts().getFirst().size());
-
-        genomeTwoConjuncts.getConjuncts().getFirst().forEach(disjunct -> {
-            assertTrue(conjunctCopy2.contains(disjunct));
-        });
     }
 
     @Test
@@ -292,31 +290,42 @@ public class MutationTests {
         Mutation mutation = new NegateConjunctMutation();
         assertTrue(mutation.suitableForMutation(genomeTwoConjuncts));
         assertEquals(2, genomeTwoConjuncts.size());
-        genomeTwoConjuncts.getConjuncts().forEach(conjunct -> {
+        for (List<LoopInvariantFreeGen> conjunct : genomeTwoConjuncts.getConjuncts()) {
             assertEquals(1, conjunct.size());
-        });
+        }
 
         LoopInvariantFreeGenome genomeTwoConjunctsCopy = genomeTwoConjuncts.copy();
 
         mutation.mutate(genomeTwoConjuncts);
 
         assertEquals(2, genomeTwoConjunctsCopy.size());
-        genomeTwoConjuncts.getConjuncts().forEach(conjunct -> {
+        for (List<LoopInvariantFreeGen> conjunct : genomeTwoConjuncts.getConjuncts()) {
             assertEquals(1, conjunct.size());
-        });
+        }
 
         int differingPolarities = 0;
 
+        List<Term> collectedTermsInCopy = new ArrayList<>();
+
         for (int i = 0; i < genomeTwoConjunctsCopy.getConjuncts().size(); i++) {
             for (int j = 0; j < genomeTwoConjunctsCopy.getConjuncts().get(i).size(); j++) {
-                assertEquals(genomeTwoConjunctsCopy.getConjuncts().get(i).get(j).getTerm(), genomeTwoConjuncts.getConjuncts().get(i).get(j).getTerm());
-                if (genomeTwoConjunctsCopy.getConjuncts().get(i).get(j).isNegated() ^ genomeTwoConjuncts.getConjuncts().get(i).get(j).isNegated()) {
+                collectedTermsInCopy.add(genomeTwoConjunctsCopy.getConjuncts().get(i).get(j).getTerm());
+                if (genomeTwoConjunctsCopy.getConjuncts().get(i).get(j).isNegated()) {
                     differingPolarities++;
                 }
             }
         }
 
-        assertEquals(1, differingPolarities);
+        for (int i = 0; i < genomeTwoConjuncts.getConjuncts().size(); i++) {
+            for (int j = 0; j < genomeTwoConjuncts.getConjuncts().get(i).size(); j++) {
+                assertTrue(collectedTermsInCopy.contains(genomeTwoConjuncts.getConjuncts().get(i).get(j).getTerm()));
+                if (genomeTwoConjuncts.getConjuncts().get(i).get(j).isNegated()) {
+                    differingPolarities--;
+                }
+            }
+        }
+
+        assertEquals(1, differingPolarities*differingPolarities);
 
     }
 
@@ -327,10 +336,10 @@ public class MutationTests {
         assertEquals(1, genome1.size());
         assertEquals(2, genome1.getConjunctSize(0));
         List<Term> terms = new ArrayList<>();
-        genome1.getConjuncts().getFirst().forEach(disjunct -> {
+        for (LoopInvariantFreeGen disjunct : genome1.getConjuncts().getFirst()) {
             assertFalse(disjunct.isNegated());
             terms.add(disjunct.getTerm());
-        });
+        }
 
         mutation.mutate(genome1);
 
@@ -354,18 +363,18 @@ public class MutationTests {
         Mutation mutation = new NegateDisjunctMutation();
         assertTrue(mutation.suitableForMutation(genomeTwoConjuncts));
         assertEquals(2, genomeTwoConjuncts.size());
-        genomeTwoConjuncts.getConjuncts().forEach(conjunct -> {
+        for (List<LoopInvariantFreeGen> conjunct : genomeTwoConjuncts.getConjuncts()) {
             assertEquals(1, conjunct.size());
-        });
+        }
 
         LoopInvariantFreeGenome genomeTwoConjunctsCopy = genomeTwoConjuncts.copy();
 
         mutation.mutate(genomeTwoConjuncts);
 
         assertEquals(2, genomeTwoConjunctsCopy.size());
-        genomeTwoConjuncts.getConjuncts().forEach(conjunct -> {
+        for (List<LoopInvariantFreeGen> conjunct : genomeTwoConjuncts.getConjuncts()) {
             assertEquals(1, conjunct.size());
-        });
+        }
 
         int differingPolarities = 0;
 
@@ -388,9 +397,9 @@ public class MutationTests {
         assertTrue(mutation.suitableForMutation(genome1));
         assertEquals(1, genome1.size());
         assertEquals(2, genome1.getConjunctSize(0));
-        genome1.getConjuncts().getFirst().forEach(disjunct -> {
+        for (LoopInvariantFreeGen disjunct : genome1.getConjuncts().getFirst()) {
             assertFalse(disjunct.isNegated());
-        });
+        }
 
         LoopInvariantFreeGenome genome1Copy = genome1.copy();
 

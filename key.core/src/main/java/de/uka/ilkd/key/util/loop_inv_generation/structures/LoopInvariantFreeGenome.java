@@ -49,6 +49,10 @@ public class LoopInvariantFreeGenome {
         Random random = new Random();
         LoopInvariantFreeGenome result = new LoopInvariantFreeGenome(services);
 
+        if (other == null || (this.conjuncts.isEmpty() && other.conjuncts.isEmpty())) {
+            return result;
+        }
+
         for (List<LoopInvariantFreeGen> conjunct : conjuncts) {
             if (random.nextDouble() < 0.5) {
                 result.conjuncts.add(conjunct);
@@ -59,6 +63,18 @@ public class LoopInvariantFreeGenome {
             if (random.nextDouble() < 0.5) {
                 result.conjuncts.add(conjunct);
             }
+        }
+
+        if (result.size() == 0) {
+            LoopInvariantFreeGenome chosen;
+            if (!this.conjuncts.isEmpty() && random.nextDouble() < 0.5) {
+                chosen = this;
+            } else {
+                chosen = other;
+            }
+
+            int conjunctIndex = random.nextInt(chosen.size());
+            result.conjuncts.add(chosen.conjuncts.get(conjunctIndex));
         }
 
         return result;
@@ -98,10 +114,12 @@ public class LoopInvariantFreeGenome {
     }
 
     public void addConjunct(List<LoopInvariantFreeGen> conjunct) {
-        this.conjuncts.add(conjunct);
+        List<LoopInvariantFreeGen> newConjunct = new ArrayList<>();
         for (LoopInvariantFreeGen disjunct: conjunct) {
+            newConjunct.add(new LoopInvariantFreeGen(disjunct));
             programVariableNameSet.addAll(disjunct.getProgramVariableNameSet());
         }
+        this.conjuncts.add(newConjunct);
         changedSinceCalc = true;
         nameSetRefreshed = false;
     }
@@ -135,7 +153,7 @@ public class LoopInvariantFreeGenome {
     public void addDisjunct(LoopInvariantFreeGen disjunct, int index) {
         if (index >= 0 && index < conjuncts.size()) {
             List<LoopInvariantFreeGen> conjunct = conjuncts.get(index);
-            conjunct.add(disjunct);
+            conjunct.add(new LoopInvariantFreeGen(disjunct));
             changedSinceCalc = true;
             nameSetRefreshed = false;
         }
@@ -187,6 +205,8 @@ public class LoopInvariantFreeGenome {
                 disjunct.replaceProgramVariable(oldVariable, newVariable);
             }
         }
+
+        nameSetRefreshed = false;
     }
 
     public Set<Name> getProgramVariableNameSet() {
