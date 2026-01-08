@@ -72,12 +72,31 @@ public abstract class LoopInvariantGen {
         return programVariableNameSet.contains(programVariable.name());
     }
 
+    public boolean containsProgramVariable(Name programVariableName) {
+        if (programVariableName == null) {
+            return false;
+        }
+
+        return programVariableNameSet.contains(programVariableName);
+    }
+
     /**
      * Replace all occurrences of oldVariable with newVariable in the term.
      * @param oldVariable the variable that should be replaced
      * @param newVariable the variable that should replace oldVariable
      */
     public abstract void replaceProgramVariable(LocationVariable oldVariable, LocationVariable newVariable);
+
+    /**
+     * Replace all occurrences of variables name oldVariableName with newVariable in the term.
+     * @param oldVariableName the name of the variable that should be replaced
+     * @param newVariable the variable that should replace the old variable
+     */
+    public abstract void replaceProgramVariable(Name oldVariableName, LocationVariable newVariable);
+
+    public Set<Name> getProgramVariableNameSet() {
+        return programVariableNameSet;
+    }
 
     @Override
     public abstract boolean equals(Object obj);

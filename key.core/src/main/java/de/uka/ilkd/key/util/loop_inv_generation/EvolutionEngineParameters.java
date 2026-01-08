@@ -1,11 +1,13 @@
 package de.uka.ilkd.key.util.loop_inv_generation;
 
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.util.loop_inv_generation.mutations.*;
 import org.key_project.logic.Term;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class EvolutionEngineParameters {
 
@@ -15,9 +17,11 @@ public class EvolutionEngineParameters {
     private double replacementRate = 0.5;
     private final List<Mutation> mutations = new ArrayList<>();
     private Term[] termPool;
+    private final Set<LocationVariable> programVariableSet;
     private final Services services;
 
-    public EvolutionEngineParameters(Services services) {
+    public EvolutionEngineParameters(Set<LocationVariable> programVariableSet, Services services) {
+        this.programVariableSet = programVariableSet;
         this.services = services;
         addMutations();
     }
@@ -55,10 +59,11 @@ public class EvolutionEngineParameters {
     private void addMutations() {
         mutations.add(new AddConjunctMutation(services, termPool));
         mutations.add(new AddDisjunctMutation(services, termPool));
-        mutations.add(new DeleteConjunctMutation(services, termPool));
-        mutations.add(new DeleteDisjunctMutation(services, termPool));
-        mutations.add(new NegateConjunctMutation(services, termPool));
-        mutations.add(new NegateDisjunctMutation(services, termPool));
+        mutations.add(new DeleteConjunctMutation());
+        mutations.add(new DeleteDisjunctMutation());
+        mutations.add(new NegateConjunctMutation());
+        mutations.add(new NegateDisjunctMutation());
+        mutations.add(new ReplaceVariableMutation(programVariableSet));
     }
 
     public void setTermPool(Term[] termPool) {

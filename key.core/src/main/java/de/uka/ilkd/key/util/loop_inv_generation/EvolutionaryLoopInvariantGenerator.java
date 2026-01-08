@@ -37,6 +37,7 @@ import de.uka.ilkd.key.util.ProofStarter;
 import de.uka.ilkd.key.util.SideProofUtil;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
+import org.key_project.logic.op.AbstractOperator;
 import org.key_project.logic.sort.Sort;
 import org.key_project.prover.engine.ProofSearchInformation;
 import org.key_project.prover.sequent.Semisequent;
@@ -53,6 +54,7 @@ public class EvolutionaryLoopInvariantGenerator {
 
     private final Services services;
     private Term[] sequentTerms;
+    private Set<Name> programVariableNameSet;
     private static final SolverType Z3_SOLVER = SolverTypes.getSolverTypes().stream()
             .filter(it -> it.getClass().equals(SolverTypeImplementation.class)
                     && it.getName().equals("Z3"))
@@ -171,12 +173,15 @@ public class EvolutionaryLoopInvariantGenerator {
 
     private LocationVariable[] collectAllProgramVariables(Sequent sequent) {
         Set<LocationVariable> locationVariableSet = new HashSet<>();
+        programVariableNameSet = new HashSet<>();
 
         //Collect all programm variables, as we need it for the fresh invariant
         for (SequentFormula sf: sequent.asList()) {
             TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
             sf.formula().execPostOrder(pvc);
             locationVariableSet.addAll(pvc.result());
+
+            locationVariableSet.stream().map(LocationVariable::name).forEach(programVariableNameSet::add);
         }
 
         return locationVariableSet.toArray(new LocationVariable[0]);

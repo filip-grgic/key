@@ -5,14 +5,12 @@ import de.uka.ilkd.key.util.loop_inv_generation.mutations.Mutation;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGen;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGenome;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantGen;
+import org.key_project.logic.Name;
 import org.key_project.logic.Term;
 import org.key_project.prover.sequent.Sequent;
 import org.key_project.util.collection.Pair;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class EvolutionEngine {
 
@@ -24,7 +22,8 @@ public class EvolutionEngine {
     private List<LoopInvariantFreeGenome> population;
     private LoopInvariantFreeGenome solution;
 
-    public EvolutionEngine(Services services, Term[] termPool, Sequent[] verificationConditions, EvolutionEngineParameters parameters) {
+    public EvolutionEngine(Services services, Term[] termPool, Sequent[] verificationConditions,
+                           EvolutionEngineParameters parameters) {
         this.services = services;
         this.termPool = termPool;
         this.verificationConditions = verificationConditions;

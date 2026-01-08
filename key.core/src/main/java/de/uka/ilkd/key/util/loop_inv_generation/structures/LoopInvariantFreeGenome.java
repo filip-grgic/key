@@ -3,20 +3,21 @@ package de.uka.ilkd.key.util.loop_inv_generation.structures;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.util.loop_inv_generation.LoopInvariantFreeGenomeComparator;
+import org.key_project.logic.Name;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class LoopInvariantFreeGenome {
 
     private static LoopInvariantFreeGenomeComparator comparator;
 
-    private List<List<LoopInvariantFreeGen>> conjuncts;
+    private final List<List<LoopInvariantFreeGen>> conjuncts;
     private final Services services;
     private double fitness;
     private boolean changedSinceCalc;
     private boolean isSolution;
+    private Set<Name> programVariableNameSet;
+    private boolean nameSetRefreshed;
 
     public static LoopInvariantFreeGenomeComparator getComparator() {
         if (comparator == null) {
@@ -28,6 +29,8 @@ public class LoopInvariantFreeGenome {
     public LoopInvariantFreeGenome(Services services) {
         this.conjuncts = new ArrayList<>();
         this.services = services;
+        programVariableNameSet =  new HashSet<>();
+        nameSetRefreshed = true;
     }
 
     public void checkFitness() {
@@ -36,6 +39,12 @@ public class LoopInvariantFreeGenome {
         changedSinceCalc = false;
     }
 
+    /**
+     * Create a new genome for the recombination phase by randomly selecting conjuncts of both genomes and create
+     * a new conjunction that is used for the child. The child with the resulting conjunction is then returned.
+     * @param other the other parent genome used for the recombination
+     * @return a recombination of the conjuncts of this and other
+     */
     public LoopInvariantFreeGenome combine(LoopInvariantFreeGenome other) {
         Random random = new Random();
         LoopInvariantFreeGenome result = new LoopInvariantFreeGenome(services);
@@ -71,6 +80,10 @@ public class LoopInvariantFreeGenome {
         return conjuncts.size();
     }
 
+    public List<List<LoopInvariantFreeGen>> getConjuncts() {
+        return conjuncts;
+    }
+
     /**
      * Return the amount of disjuncts in the conjunct at the specified index.
      * @param index of the conjunct in the genome
@@ -86,7 +99,11 @@ public class LoopInvariantFreeGenome {
 
     public void addConjunct(List<LoopInvariantFreeGen> conjunct) {
         this.conjuncts.add(conjunct);
+        for (LoopInvariantFreeGen disjunct: conjunct) {
+            programVariableNameSet.addAll(disjunct.getProgramVariableNameSet());
+        }
         changedSinceCalc = true;
+        nameSetRefreshed = false;
     }
 
     public void addConjunct(LoopInvariantFreeGen conjunct) {
@@ -98,8 +115,9 @@ public class LoopInvariantFreeGenome {
     public void removeConjunct(int index) {
         if (index >= 0 && index < conjuncts.size()) {
             conjuncts.remove(index);
+            changedSinceCalc = true;
+            nameSetRefreshed = false;
         }
-        changedSinceCalc = true;
 
     }
 
@@ -119,6 +137,7 @@ public class LoopInvariantFreeGenome {
             List<LoopInvariantFreeGen> conjunct = conjuncts.get(index);
             conjunct.add(disjunct);
             changedSinceCalc = true;
+            nameSetRefreshed = false;
         }
 
     }
@@ -133,6 +152,7 @@ public class LoopInvariantFreeGenome {
                 conjuncts.get(conjunctIndex).remove(disjunctIndex);
             }
             changedSinceCalc = true;
+            nameSetRefreshed = false;
         }
     }
 
@@ -145,6 +165,8 @@ public class LoopInvariantFreeGenome {
     }
 
     public boolean containsProgramVariable(LocationVariable programVariable) {
+        refreshProgramVariableNameSet();
+
         if (programVariable == null) {
             return false;
         }
@@ -158,4 +180,45 @@ public class LoopInvariantFreeGenome {
 
         return false;
     }
+
+    public void replaceProgramVariable(Name oldVariable, LocationVariable newVariable) {
+        for (List<LoopInvariantFreeGen> conjunct: conjuncts) {
+            for (LoopInvariantFreeGen disjunct: conjunct) {
+                disjunct.replaceProgramVariable(oldVariable, newVariable);
+            }
+        }
+    }
+
+    public Set<Name> getProgramVariableNameSet() {
+        refreshProgramVariableNameSet();
+        return programVariableNameSet;
+    }
+
+    private void refreshProgramVariableNameSet() {
+        if (nameSetRefreshed) {
+            return;
+        }
+
+        programVariableNameSet = new HashSet<>();
+        for (List<LoopInvariantFreeGen> conjunct : conjuncts) {
+            for (LoopInvariantFreeGen disjunct : conjunct) {
+                programVariableNameSet.addAll(disjunct.getProgramVariableNameSet());
+            }
+        }
+        nameSetRefreshed = true;
+    }
+
+    public LoopInvariantFreeGenome copy() {
+        LoopInvariantFreeGenome newGenome = new LoopInvariantFreeGenome(services);
+        for (List<LoopInvariantFreeGen> conjunct: conjuncts) {
+            List<LoopInvariantFreeGen> newConjunct = new ArrayList<>();
+            for (LoopInvariantFreeGen disjunct: conjunct) {
+                newConjunct.add(disjunct.copy());
+            }
+            newGenome.addConjunct(newConjunct);
+        }
+
+        return newGenome;
+    }
+
 }

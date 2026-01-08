@@ -14,6 +14,8 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
 
     private final Services services;
 
+    //TODO: include constants somehow
+
     public LoopInvariantFreeGen(Services services, Term term) {
         super();
         this.services = services;
@@ -68,13 +70,18 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
      */
     @Override
     public void replaceProgramVariable(LocationVariable oldVariable, LocationVariable newVariable) {
-        if (!containsProgramVariable(oldVariable) || oldVariable == null || newVariable == null) {
+        replaceProgramVariable(oldVariable.name(), newVariable);
+    }
+
+    @Override
+    public void replaceProgramVariable(Name oldVariableName, LocationVariable newVariable) {
+        if (!containsProgramVariable(oldVariableName) || oldVariableName == null || newVariable == null) {
             return;
         }
 
-        term = replaceProgramVariableInTerm(term, oldVariable.name(), newVariable);
+        term = replaceProgramVariableInTerm(term, oldVariableName, newVariable);
 
-        programVariableNameSet.remove(oldVariable.name());
+        programVariableNameSet.remove(oldVariableName);
         programVariableNameSet.add(newVariable.name());
     }
 
@@ -105,5 +112,11 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         }
 
         return term.equals(other.term) && affirmative == other.affirmative;
+    }
+
+    public LoopInvariantFreeGen copy() {
+        LoopInvariantFreeGen newGen = new LoopInvariantFreeGen(services, this.term);
+        newGen.affirmative = affirmative;
+        return newGen;
     }
 }

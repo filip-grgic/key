@@ -27,6 +27,8 @@ class LoopInvariantFreeGenTests {
     private LocationVariable yVar;
     private LocationVariable zVar;
 
+    private LocationVariable nullLocVariable;
+
     @BeforeEach
     public void setUp() {
         HelperClassForTests helper = new HelperClassForTests();
@@ -39,6 +41,8 @@ class LoopInvariantFreeGenTests {
         xVar = termBuilder.locationVariable("x", integerSort, true);
         yVar = termBuilder.locationVariable("y", integerSort, true);
         zVar = termBuilder.locationVariable("z", integerSort, true);
+
+        nullLocVariable = null;
     }
 
     @Test
@@ -94,7 +98,7 @@ class LoopInvariantFreeGenTests {
 
         assertTrue(gen.containsProgramVariable(xVar));
         assertFalse(gen.containsProgramVariable(yVar));
-        assertFalse(gen.containsProgramVariable(null));
+        assertFalse(gen.containsProgramVariable(nullLocVariable));
     }
 
     @Test
@@ -178,7 +182,7 @@ class LoopInvariantFreeGenTests {
         assertEquals(gen.getTerm(), term1);
         assertTrue(gen.containsProgramVariable(xVar));
 
-        gen.replaceProgramVariable(null, yVar);
+        gen.replaceProgramVariable(nullLocVariable, yVar);
 
         assertEquals(gen.getTerm(), term1);
         assertTrue(gen.containsProgramVariable(xVar));
