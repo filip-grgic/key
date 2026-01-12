@@ -28,10 +28,8 @@ import de.uka.ilkd.key.rule.inst.SVInstantiations.UpdateLabelPair;
 import de.uka.ilkd.key.speclang.HeapContext;
 import de.uka.ilkd.key.strategy.quantifierHeuristics.Metavariable;
 
-import org.key_project.logic.Name;
-import org.key_project.logic.Namespace;
-import org.key_project.logic.PosInTerm;
-import org.key_project.logic.TermCreationException;
+import org.key_project.logic.*;
+import org.key_project.logic.op.AbstractSortedOperator;
 import org.key_project.logic.op.Function;
 import org.key_project.logic.op.QuantifiableVariable;
 import org.key_project.logic.op.UpdateableOperator;
@@ -2174,6 +2172,35 @@ public class TermBuilder {
 
         return tf.createTerm(term.op(), newSubs, term.boundVars(),
             term.getLabels());
+    }
+
+    /**
+     * Replaces all occurrences of variables with the given name in the term by the given new variable.
+     * @param term that may or may not contain occurrences of variables with the name oldVariableName
+     * @param oldVariableName the name of the variable that should be replaced
+     * @param newVariable the variable that should replace the old occurrences
+     * @return a term with the replaced occurrences
+     */
+    public Term replaceVariable(Term term, Name oldVariableName, AbstractSortedOperator newVariable) {
+
+        if (term.op().name().equals(oldVariableName)) {
+            if (term.op() instanceof LocationVariable) {
+                return services.getTermBuilder().var((LocationVariable) newVariable);
+            } else if (term.op() instanceof LogicVariable) {
+                return services.getTermBuilder().var((LogicVariable) newVariable);
+            }
+        } else if (term.arity() == 0) {
+            return term;
+        }
+
+        var oldSubs = term.subs();
+        JTerm[] newSubs = new JTerm[oldSubs.size()];
+        for (int i = 0; i < oldSubs.size(); i++) {
+            //TODO: Handle subs being null
+            newSubs[i] = (JTerm) replaceVariable(oldSubs.get(i), oldVariableName, newVariable);
+        }
+
+        return services.getTermFactory().createTerm(term.op(), newSubs);
     }
 
     public ImmutableSet<JTerm> unionToSet(JTerm s) {

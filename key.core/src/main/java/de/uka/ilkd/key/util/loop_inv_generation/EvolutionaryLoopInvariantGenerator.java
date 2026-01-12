@@ -10,7 +10,6 @@ import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.op.JFunction;
 import de.uka.ilkd.key.logic.op.JModality;
 import de.uka.ilkd.key.logic.op.LocationVariable;
-import de.uka.ilkd.key.logic.sort.ProgramSVSort;
 import de.uka.ilkd.key.proof.Goal;
 import de.uka.ilkd.key.proof.Proof;
 import de.uka.ilkd.key.proof.TermProgramVariableCollector;
@@ -18,14 +17,6 @@ import de.uka.ilkd.key.proof.calculus.JavaDLSequentKit;
 import de.uka.ilkd.key.proof.init.ProofInputException;
 import de.uka.ilkd.key.proof.io.ProofSaver;
 import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
-import de.uka.ilkd.key.settings.DefaultSMTSettings;
-import de.uka.ilkd.key.settings.NewSMTTranslationSettings;
-import de.uka.ilkd.key.settings.ProofDependentSMTSettings;
-import de.uka.ilkd.key.settings.ProofIndependentSMTSettings;
-import de.uka.ilkd.key.smt.SMTProblem;
-import de.uka.ilkd.key.smt.SMTSettings;
-import de.uka.ilkd.key.smt.SMTSolver;
-import de.uka.ilkd.key.smt.SolverLauncher;
 import de.uka.ilkd.key.smt.solvertypes.SolverType;
 import de.uka.ilkd.key.smt.solvertypes.SolverTypeImplementation;
 import de.uka.ilkd.key.smt.solvertypes.SolverTypes;
@@ -35,12 +26,11 @@ import de.uka.ilkd.key.strategy.JavaCardDLStrategyFactory;
 import de.uka.ilkd.key.strategy.StrategyProperties;
 import de.uka.ilkd.key.util.ProofStarter;
 import de.uka.ilkd.key.util.SideProofUtil;
+import de.uka.ilkd.key.util.loop_inv_generation.structures.VerificationCondition;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
-import org.key_project.logic.op.AbstractOperator;
 import org.key_project.logic.sort.Sort;
 import org.key_project.prover.engine.ProofSearchInformation;
-import org.key_project.prover.sequent.Semisequent;
 import org.key_project.prover.sequent.Sequent;
 import org.key_project.prover.sequent.SequentFormula;
 import org.key_project.util.collection.ImmutableList;
@@ -65,12 +55,12 @@ public class EvolutionaryLoopInvariantGenerator {
     }
 
     public void generateLoopInvariant() {
-        ImmutableList<Goal> verificationConditions = generateVerificationConditions();
+        VerificationCondition[] verificationConditions = generateVerificationConditions();
 
-        for (Goal goal: verificationConditions) {
-            System.out.println("-------------------------------------------------------");
-            System.out.println(ProofSaver.printAnything(goal.node().sequent(), services));
-        }
+//        for (Goal goal: verificationConditions) {
+//            System.out.println("-------------------------------------------------------");
+//            System.out.println(ProofSaver.printAnything(goal.node().sequent(), services));
+//        }
 //        SMTProblem smtProblem = new SMTProblem(verificationConditions.get(0));
 
 
@@ -126,7 +116,7 @@ public class EvolutionaryLoopInvariantGenerator {
 
     }
 
-    private ImmutableList<Goal> generateVerificationConditions() {
+    private VerificationCondition[] generateVerificationConditions() {
         ProofEnvironment proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
         Services envServices = proofEnv.getServicesForEnvironment();
         TermBuilder envTermBuilder = envServices.getTermBuilder();
@@ -168,14 +158,25 @@ public class EvolutionaryLoopInvariantGenerator {
         ProofSearchInformation<Proof, Goal> pi = proofStarter.start();
 
         //Verification Conditions are the open goals that are still left
-        return pi.getProof().openGoals();
+        return convertGoalsToVerificationConditions(pi.getProof().openGoals(), loopSpecs);
+    }
+
+    private VerificationCondition[] convertGoalsToVerificationConditions(ImmutableList<Goal> goals, List<LoopSpecification> loopSpecs) {
+        VerificationCondition[] result = new  VerificationCondition[goals.size()];
+
+        for(int i = 0; i < goals.size(); i++) {
+            //TODO: Implement for multiple possible loop specifications
+            result[i] = new VerificationCondition(services, goals.get(i).sequent(), loopSpecs.getFirst(), Z3_SOLVER);
+        }
+
+        return result;
     }
 
     private LocationVariable[] collectAllProgramVariables(Sequent sequent) {
         Set<LocationVariable> locationVariableSet = new HashSet<>();
         programVariableNameSet = new HashSet<>();
 
-        //Collect all programm variables, as we need it for the fresh invariant
+        //Collect all program variables, as we need it for the fresh invariant
         for (SequentFormula sf: sequent.asList()) {
             TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
             sf.formula().execPostOrder(pvc);

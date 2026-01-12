@@ -9,6 +9,7 @@ import de.uka.ilkd.key.proof.ProofAggregate;
 import de.uka.ilkd.key.util.HelperClassForTests;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGen;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGenome;
+import de.uka.ilkd.key.util.loop_inv_generation.structures.VerificationCondition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.key_project.logic.Term;
@@ -67,7 +68,7 @@ public class LoopInvariantFreeGenomeTests {
 
     @Test
     public void testConstructor_positive() {
-        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services);
+        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
         assertNotNull(genome);
         assertNotNull(genome.getConjuncts());
         assertEquals(0, genome.size());
@@ -75,7 +76,7 @@ public class LoopInvariantFreeGenomeTests {
 
     @Test
     public void testAddConjunct_positiveWithList() {
-        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services);
+        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
 
         List<LoopInvariantFreeGen> conjunct = new ArrayList<>();
         conjunct.add(zLessThanX);
@@ -90,7 +91,7 @@ public class LoopInvariantFreeGenomeTests {
 
     @Test
     public void testAddConjunct_positiveWithGen() {
-        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services);
+        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
 
         genome.addConjunct(zLessThanX);
 
@@ -103,18 +104,18 @@ public class LoopInvariantFreeGenomeTests {
     }
 
     private void setUpGenomes() {
-        genome1 = new LoopInvariantFreeGenome(services);
+        genome1 = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
         List<LoopInvariantFreeGen> conjunct = new ArrayList<>();
         conjunct.add(zLessThanX);
         conjunct.add(xLessThanY);
 
         genome1.addConjunct(conjunct);
 
-        genome2 = new LoopInvariantFreeGenome(services);
+        genome2 = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
         LoopInvariantFreeGen gen2 = new LoopInvariantFreeGen(services, termBuilder.lt(one, (JTerm) yTerm));
         genome2.addConjunct(gen2);
 
-        genomeTwoConjuncts = new LoopInvariantFreeGenome(services);
+        genomeTwoConjuncts = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
         genomeTwoConjuncts.addConjunct(gen2);
         genomeTwoConjuncts.addConjunct(xLessThanY);
     }
@@ -356,7 +357,7 @@ public class LoopInvariantFreeGenomeTests {
         assertTrue(genome1.containsProgramVariable(yVar));
         assertTrue(genome1.containsProgramVariable(zVar));
 
-        genome1.replaceProgramVariable(zVar.name(), yVar);
+        genome1.replaceVariable(zVar.name(), yVar);
 
         assertTrue(genome1.containsProgramVariable(xVar));
         assertTrue(genome1.containsProgramVariable(yVar));
@@ -372,7 +373,7 @@ public class LoopInvariantFreeGenomeTests {
         assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
         assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
 
-        genomeTwoConjuncts.replaceProgramVariable(zVar.name(), yVar);
+        genomeTwoConjuncts.replaceVariable(zVar.name(), yVar);
 
         assertTrue(genomeTwoConjuncts.containsProgramVariable(xVar));
         assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));

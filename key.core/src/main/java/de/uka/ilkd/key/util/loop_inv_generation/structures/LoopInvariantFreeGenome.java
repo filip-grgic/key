@@ -1,9 +1,14 @@
 package de.uka.ilkd.key.util.loop_inv_generation.structures;
 
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.logic.JTerm;
+import de.uka.ilkd.key.logic.TermBuilder;
+import de.uka.ilkd.key.logic.op.JAbstractSortedOperator;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.util.loop_inv_generation.LoopInvariantFreeGenomeComparator;
 import org.key_project.logic.Name;
+import org.key_project.logic.Term;
+import org.key_project.prover.sequent.Sequent;
 
 import java.util.*;
 
@@ -18,6 +23,7 @@ public class LoopInvariantFreeGenome {
     private boolean isSolution;
     private Set<Name> programVariableNameSet;
     private boolean nameSetRefreshed;
+    private final VerificationCondition[] verificationConditions;
 
     public static LoopInvariantFreeGenomeComparator getComparator() {
         if (comparator == null) {
@@ -26,17 +32,57 @@ public class LoopInvariantFreeGenome {
         return comparator;
     }
 
-    public LoopInvariantFreeGenome(Services services) {
+    public LoopInvariantFreeGenome(Services services, VerificationCondition[] verificationConditions) {
         this.conjuncts = new ArrayList<>();
         this.services = services;
+        this.verificationConditions = verificationConditions;
         programVariableNameSet =  new HashSet<>();
         nameSetRefreshed = true;
     }
 
+    public LoopInvariantFreeGenome(Services services) {
+        this(services, new VerificationCondition[0]);
+    }
+
     public void checkFitness() {
-        //TODO: Calculate fitness as amount of satisfied verificationConditions + 1 (+1 necessary s.t. the overall fitness can't be 0)
-        //TODO: Check whether it is a solution
+        //TODO: Try different Fitness strategies: e.g. weighted VCs depending on how many generations they have been fulfilled
+        fitness = 0;
+        isSolution = true;
+        for (VerificationCondition vc : verificationConditions) {
+            if (vc.checkFulfillment(this)) {
+                fitness += 1;
+            } else {
+                isSolution = false;
+            }
+        }
+
+        fitness += 1;
+
         changedSinceCalc = false;
+    }
+
+    public Term translateToTerm() {
+        TermBuilder termBuilder = services.getTermBuilder();
+
+        Term conjunction = null;
+        for (List<LoopInvariantFreeGen> conjunct : conjuncts) {
+            Term disjunction = null;
+            for (LoopInvariantFreeGen disjunct : conjunct) {
+                if (disjunction == null) {
+                    disjunction = disjunct.translateToTerm();
+                } else {
+                    disjunction = termBuilder.or((JTerm) disjunction, (JTerm) disjunct.translateToTerm());
+                }
+            }
+
+            if (conjunction == null) {
+                conjunction = disjunction;
+            } else {
+                conjunction = termBuilder.and((JTerm) conjunction, (JTerm) disjunction);
+            }
+        }
+
+        return conjunction;
     }
 
     /**
@@ -47,7 +93,7 @@ public class LoopInvariantFreeGenome {
      */
     public LoopInvariantFreeGenome combine(LoopInvariantFreeGenome other) {
         Random random = new Random();
-        LoopInvariantFreeGenome result = new LoopInvariantFreeGenome(services);
+        LoopInvariantFreeGenome result = new LoopInvariantFreeGenome(services, verificationConditions);
 
         if (other == null || (this.conjuncts.isEmpty() && other.conjuncts.isEmpty())) {
             return result;
@@ -81,6 +127,9 @@ public class LoopInvariantFreeGenome {
     }
 
     public double getFitness() {
+        if (changedSinceCalc) {
+            checkFitness();
+        }
         return fitness;
     }
 
@@ -199,10 +248,10 @@ public class LoopInvariantFreeGenome {
         return false;
     }
 
-    public void replaceProgramVariable(Name oldVariable, LocationVariable newVariable) {
+    public void replaceVariable(Name oldVariable, JAbstractSortedOperator newVariable) {
         for (List<LoopInvariantFreeGen> conjunct: conjuncts) {
             for (LoopInvariantFreeGen disjunct: conjunct) {
-                disjunct.replaceProgramVariable(oldVariable, newVariable);
+                disjunct.replaceVariable(oldVariable, newVariable);
             }
         }
 
@@ -229,7 +278,7 @@ public class LoopInvariantFreeGenome {
     }
 
     public LoopInvariantFreeGenome copy() {
-        LoopInvariantFreeGenome newGenome = new LoopInvariantFreeGenome(services);
+        LoopInvariantFreeGenome newGenome = new LoopInvariantFreeGenome(services, verificationConditions);
         for (List<LoopInvariantFreeGen> conjunct: conjuncts) {
             List<LoopInvariantFreeGen> newConjunct = new ArrayList<>();
             for (LoopInvariantFreeGen disjunct: conjunct) {

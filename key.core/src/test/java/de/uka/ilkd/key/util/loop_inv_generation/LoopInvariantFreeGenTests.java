@@ -126,7 +126,7 @@ class LoopInvariantFreeGenTests {
     }
 
     @Test
-    public void testReplaceProgramVariable_positive() {
+    public void testReplaceVariable_positive() {
         JTerm xTerm = termBuilder.var(xVar);
         JTerm yTerm = termBuilder.var(yVar);
         Term term1 = termBuilder.lt(xTerm, two);
@@ -139,7 +139,7 @@ class LoopInvariantFreeGenTests {
         assertTrue(gen1.containsProgramVariable(xVar));
         assertFalse(gen1.containsProgramVariable(yVar));
 
-        gen1.replaceProgramVariable(xVar, yVar);
+        gen1.replaceVariable(xVar, yVar);
 
         assertEquals(gen1.getTerm(), term2);
         assertNotEquals(gen1.getTerm(), term1);
@@ -148,7 +148,7 @@ class LoopInvariantFreeGenTests {
     }
 
     @Test
-    public void testReplaceProgramVariable_nonExistingVariable() {
+    public void testReplaceVariable_nonExistingVariable() {
         JTerm xTerm = termBuilder.var(xVar);
         Term term1 = termBuilder.lt(xTerm, two);
 
@@ -159,7 +159,7 @@ class LoopInvariantFreeGenTests {
         assertFalse(gen.containsProgramVariable(yVar));
         assertFalse(gen.containsProgramVariable(zVar));
 
-        gen.replaceProgramVariable(yVar, zVar);
+        gen.replaceVariable(yVar, zVar);
 
         assertEquals(gen.getTerm(), term1);
         assertTrue(gen.containsProgramVariable(xVar));
@@ -168,7 +168,7 @@ class LoopInvariantFreeGenTests {
     }
 
     @Test
-    public void testReplaceProgramVariable_nullParameter() {
+    public void testReplaceVariable_nullParameter() {
         JTerm xTerm = termBuilder.var(xVar);
         Term term1 = termBuilder.lt(xTerm, two);
 
@@ -177,12 +177,12 @@ class LoopInvariantFreeGenTests {
         assertEquals(gen.getTerm(), term1);
         assertTrue(gen.containsProgramVariable(xVar));
 
-        gen.replaceProgramVariable(xVar, null);
+        gen.replaceVariable(xVar, null);
 
         assertEquals(gen.getTerm(), term1);
         assertTrue(gen.containsProgramVariable(xVar));
 
-        gen.replaceProgramVariable(nullLocVariable, yVar);
+        gen.replaceVariable(nullLocVariable, yVar);
 
         assertEquals(gen.getTerm(), term1);
         assertTrue(gen.containsProgramVariable(xVar));
@@ -190,7 +190,7 @@ class LoopInvariantFreeGenTests {
     }
 
     @Test
-    public void testReplaceProgramVariable_additionSubTerm() {
+    public void testReplaceVariable_additionSubTerm() {
         JTerm xTerm = termBuilder.var(xVar);
         JTerm zTerm = termBuilder.var(zVar);
         JTerm rightX = termBuilder.add(termBuilder.add(one, xTerm), two);
@@ -206,7 +206,7 @@ class LoopInvariantFreeGenTests {
         assertTrue(gen.containsProgramVariable(yVar));
         assertFalse(gen.containsProgramVariable(zVar));
 
-        gen.replaceProgramVariable(xVar, zVar);
+        gen.replaceVariable(xVar, zVar);
         Term term2 = termBuilder.lt(leftY, rightZ);
 
         assertEquals(gen.getTerm(), term2);
@@ -214,7 +214,7 @@ class LoopInvariantFreeGenTests {
         assertTrue(gen.containsProgramVariable(yVar));
         assertTrue(gen.containsProgramVariable(zVar));
 
-        gen.replaceProgramVariable(yVar, xVar);
+        gen.replaceVariable(yVar, xVar);
         Term term3 = termBuilder.lt(leftX, rightZ);
 
         assertEquals(gen.getTerm(), term3);

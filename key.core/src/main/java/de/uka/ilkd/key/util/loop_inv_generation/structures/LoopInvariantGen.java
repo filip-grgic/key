@@ -4,6 +4,7 @@ import de.uka.ilkd.key.logic.op.Junctor;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
+import org.key_project.logic.op.AbstractSortedOperator;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -85,14 +86,14 @@ public abstract class LoopInvariantGen {
      * @param oldVariable the variable that should be replaced
      * @param newVariable the variable that should replace oldVariable
      */
-    public abstract void replaceProgramVariable(LocationVariable oldVariable, LocationVariable newVariable);
+    public abstract void replaceVariable(LocationVariable oldVariable, AbstractSortedOperator newVariable);
 
     /**
      * Replace all occurrences of variables name oldVariableName with newVariable in the term.
      * @param oldVariableName the name of the variable that should be replaced
      * @param newVariable the variable that should replace the old variable
      */
-    public abstract void replaceProgramVariable(Name oldVariableName, LocationVariable newVariable);
+    public abstract void replaceVariable(Name oldVariableName, AbstractSortedOperator newVariable);
 
     public Set<Name> getProgramVariableNameSet() {
         return programVariableNameSet;

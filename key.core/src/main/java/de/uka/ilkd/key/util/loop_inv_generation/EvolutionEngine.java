@@ -4,10 +4,8 @@ import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.util.loop_inv_generation.mutations.Mutation;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGen;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGenome;
-import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantGen;
-import org.key_project.logic.Name;
+import de.uka.ilkd.key.util.loop_inv_generation.structures.VerificationCondition;
 import org.key_project.logic.Term;
-import org.key_project.prover.sequent.Sequent;
 import org.key_project.util.collection.Pair;
 
 import java.util.*;
@@ -16,13 +14,13 @@ public class EvolutionEngine {
 
     private Services services;
     private Term[] termPool;
-    private Sequent[] verificationConditions;
+    private VerificationCondition[] verificationConditions;
     private EvolutionEngineParameters parameters;
 
     private List<LoopInvariantFreeGenome> population;
     private LoopInvariantFreeGenome solution;
 
-    public EvolutionEngine(Services services, Term[] termPool, Sequent[] verificationConditions,
+    public EvolutionEngine(Services services, Term[] termPool, VerificationCondition[] verificationConditions,
                            EvolutionEngineParameters parameters) {
         this.services = services;
         this.termPool = termPool;
@@ -81,7 +79,7 @@ public class EvolutionEngine {
             List<LoopInvariantFreeGen> conjunct = new ArrayList<>();
             conjunct.add(gen);
 
-            LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services);
+            LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services, verificationConditions);
             genome.addConjunct(conjunct);
 
             population.add(genome);
@@ -153,12 +151,21 @@ public class EvolutionEngine {
         Random random = new Random();
         List<Mutation> mutations = parameters.getMutations();
         for (LoopInvariantFreeGenome child: children) {
+            List<Mutation> possibleMutations = new ArrayList<>(mutations);
             Mutation mutation = null;
-            for (int i = 0; i < mutations.size() && (mutation == null || !(mutation.suitableForMutation(child))); i++) {
-                mutation = mutations.get(random.nextInt(mutations.size()));
+            while (!possibleMutations.isEmpty()) {
+                Mutation potentialMutation = mutations.get(random.nextInt(mutations.size()));
+                if (potentialMutation.suitableForMutation(child)) {
+                    mutation = potentialMutation;
+                    break;
+                } else {
+                    possibleMutations.remove(potentialMutation);
+                }
             }
 
-            mutation.mutate(child);
+            if (mutation != null) {
+                mutation.mutate(child);
+            }
         }
 
     }

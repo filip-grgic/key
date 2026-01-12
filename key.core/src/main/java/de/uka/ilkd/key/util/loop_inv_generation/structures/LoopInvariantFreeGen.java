@@ -3,12 +3,15 @@ package de.uka.ilkd.key.util.loop_inv_generation.structures;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.ldt.IntegerLDT;
 import de.uka.ilkd.key.logic.JTerm;
+import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.TermFactory;
-import de.uka.ilkd.key.logic.op.Junctor;
+import de.uka.ilkd.key.logic.op.JAbstractSortedOperator;
 import de.uka.ilkd.key.logic.op.LocationVariable;
+import de.uka.ilkd.key.logic.op.LogicVariable;
 import de.uka.ilkd.key.proof.TermProgramVariableCollector;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
+import org.key_project.logic.op.AbstractSortedOperator;
 import org.key_project.logic.sort.Sort;
 
 public class LoopInvariantFreeGen extends LoopInvariantGen {
@@ -71,48 +74,43 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         return term.sub(1);
     }
 
+    public Term translateToTerm() {
+        TermBuilder termBuilder = services.getTermBuilder();
+        TermFactory termFactory = services.getTermFactory();
+        JTerm result = termFactory.createTerm((JTerm) term);
+
+        if (!affirmative) {
+            result = termBuilder.not(result);
+        }
+
+        return result;
+    }
+
     /**
      * Replace all occurrences of oldVariable with newVariable in the term.
      * @param oldVariable the variable that should be replaced
      * @param newVariable the variable that should replace oldVariable
      */
     @Override
-    public void replaceProgramVariable(LocationVariable oldVariable, LocationVariable newVariable) {
+    public void replaceVariable(LocationVariable oldVariable, AbstractSortedOperator newVariable) {
         if (oldVariable == null) {
             return;
         }
-        replaceProgramVariable(oldVariable.name(), newVariable);
+        replaceVariable(oldVariable.name(), newVariable);
     }
 
     @Override
-    public void replaceProgramVariable(Name oldVariableName, LocationVariable newVariable) {
+    public void replaceVariable(Name oldVariableName, AbstractSortedOperator newVariable) {
         if (!containsProgramVariable(oldVariableName) || oldVariableName == null || newVariable == null) {
             return;
         }
 
-        term = replaceProgramVariableInTerm(term, oldVariableName, newVariable);
+        term = services.getTermBuilder().replaceVariable(term, oldVariableName, newVariable);
 
         programVariableNameSet.remove(oldVariableName);
         programVariableNameSet.add(newVariable.name());
     }
 
-    private Term replaceProgramVariableInTerm(Term term, Name oldVariableName, LocationVariable newVariable) {
-
-        if (term.op() instanceof LocationVariable && term.op().name().equals(oldVariableName)) {
-            return services.getTermBuilder().var(newVariable);
-        } else if (term.arity() == 0) {
-            return term;
-        }
-
-        var oldSubs = term.subs();
-        JTerm[] newSubs = new JTerm[oldSubs.size()];
-        for (int i = 0; i < oldSubs.size(); i++) {
-            //TODO: Handle subs being null
-            newSubs[i] = (JTerm) replaceProgramVariableInTerm(oldSubs.get(i), oldVariableName, newVariable);
-        }
-
-        return services.getTermFactory().createTerm(term.op(), newSubs);
-    }
 
     @Override
     public boolean equals(Object obj) {

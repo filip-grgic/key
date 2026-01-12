@@ -1,10 +1,8 @@
 package de.uka.ilkd.key.util.loop_inv_generation.mutations;
 
-import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGenome;
 import org.key_project.logic.Name;
-import org.key_project.logic.Term;
 
 import java.util.Random;
 import java.util.Set;
@@ -40,7 +38,7 @@ public class ReplaceVariableMutation extends Mutation {
             globalSetIndex--;
         }
 
-        genome.replaceProgramVariable(genomeLocVariableName, globalLocVariable);
+        genome.replaceVariable(genomeLocVariableName, globalLocVariable);
     }
 
     @Override
