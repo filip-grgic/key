@@ -33,7 +33,6 @@ public class VerificationCondition {
 
     private final Sequent sequent;
     private final Services services;
-    private final Term function;
     private Term quantifiedInvariant;
     private final Map<Name, LogicVariable> quantVars;
 
@@ -42,7 +41,7 @@ public class VerificationCondition {
     public VerificationCondition(Services services, Sequent sequent, LoopSpecification loopSpecification, SolverType SMTSolver) {
         this.sequent = sequent;
         this.services = services;
-        this.function = loopSpecification.getInvariant(services);
+        Term function = loopSpecification.getInvariant(services);
         this.SMTSolver = SMTSolver;
         TermBuilder termBuilder = services.getTermBuilder();
 

@@ -132,6 +132,6 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
     @Override
     public String toString() {
         return String.format("%s%s",
-                this.affirmative ? "NOT " : "", this.term);
+                this.affirmative ? "" : "NOT ", this.term);
     }
 }

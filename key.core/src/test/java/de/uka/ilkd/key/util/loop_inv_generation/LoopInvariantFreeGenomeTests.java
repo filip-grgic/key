@@ -9,7 +9,6 @@ import de.uka.ilkd.key.proof.ProofAggregate;
 import de.uka.ilkd.key.util.HelperClassForTests;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGen;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGenome;
-import de.uka.ilkd.key.util.loop_inv_generation.structures.VerificationCondition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.key_project.logic.Term;
@@ -33,6 +32,8 @@ public class LoopInvariantFreeGenomeTests {
     private Term xTerm;
     private Term yTerm;
     private Term zTerm;
+    private Term zLessThanXTerm;
+    private Term xLessThanYTerm;
 
     private LoopInvariantFreeGen zLessThanX;
     private LoopInvariantFreeGen xLessThanY;
@@ -40,8 +41,11 @@ public class LoopInvariantFreeGenomeTests {
     private LoopInvariantFreeGenome genome1;
     private LoopInvariantFreeGenome genome2;
     private LoopInvariantFreeGenome genomeTwoConjuncts;
+    private LoopInvariantFreeGenome genomeTwoDisjunctsTwoConjuncts;
 
     private LoopInvariantFreeGen oneLessThanTwo;
+    private LoopInvariantFreeGenome genomeSingle1;
+    private LoopInvariantFreeGenome genomeSingle2;
 
     @BeforeEach
     public void setUp() {
@@ -61,14 +65,17 @@ public class LoopInvariantFreeGenomeTests {
         yTerm = termBuilder.var(yVar);
         zTerm = termBuilder.var(zVar);
 
-        zLessThanX = new LoopInvariantFreeGen(services, termBuilder.lt((JTerm) zTerm, (JTerm) xTerm));
-        xLessThanY = new LoopInvariantFreeGen(services, termBuilder.lt((JTerm) xTerm, (JTerm) yTerm));
+        zLessThanXTerm = termBuilder.lt((JTerm) zTerm, (JTerm) xTerm);
+        xLessThanYTerm = termBuilder.lt((JTerm) xTerm, (JTerm) yTerm);
+
+        zLessThanX = new LoopInvariantFreeGen(services, zLessThanXTerm);
+        xLessThanY = new LoopInvariantFreeGen(services, xLessThanYTerm);
         oneLessThanTwo = new LoopInvariantFreeGen(services, termBuilder.lt(one, two));
     }
 
     @Test
     public void testConstructor_positive() {
-        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
+        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services);
         assertNotNull(genome);
         assertNotNull(genome.getConjuncts());
         assertEquals(0, genome.size());
@@ -76,7 +83,7 @@ public class LoopInvariantFreeGenomeTests {
 
     @Test
     public void testAddConjunct_positiveWithList() {
-        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
+        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services);
 
         List<LoopInvariantFreeGen> conjunct = new ArrayList<>();
         conjunct.add(zLessThanX);
@@ -91,7 +98,7 @@ public class LoopInvariantFreeGenomeTests {
 
     @Test
     public void testAddConjunct_positiveWithGen() {
-        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
+        LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services);
 
         genome.addConjunct(zLessThanX);
 
@@ -104,20 +111,43 @@ public class LoopInvariantFreeGenomeTests {
     }
 
     private void setUpGenomes() {
-        genome1 = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
+        genome1 = new LoopInvariantFreeGenome(services);
         List<LoopInvariantFreeGen> conjunct = new ArrayList<>();
         conjunct.add(zLessThanX);
         conjunct.add(xLessThanY);
 
         genome1.addConjunct(conjunct);
 
-        genome2 = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
+        genome2 = new LoopInvariantFreeGenome(services);
         LoopInvariantFreeGen gen2 = new LoopInvariantFreeGen(services, termBuilder.lt(one, (JTerm) yTerm));
         genome2.addConjunct(gen2);
 
-        genomeTwoConjuncts = new LoopInvariantFreeGenome(services, new VerificationCondition[0]);
+        genomeTwoConjuncts = new LoopInvariantFreeGenome(services);
         genomeTwoConjuncts.addConjunct(gen2);
         genomeTwoConjuncts.addConjunct(xLessThanY);
+
+        genomeTwoDisjunctsTwoConjuncts = new LoopInvariantFreeGenome(services);
+        genomeTwoDisjunctsTwoConjuncts.addConjunct(gen2);
+        genomeTwoDisjunctsTwoConjuncts.addDisjunct(xLessThanY, 0);
+        genomeTwoDisjunctsTwoConjuncts.addConjunct(conjunct);
+
+        genomeSingle1 = new LoopInvariantFreeGenome(services);
+        genomeSingle1.addConjunct(zLessThanX);
+
+        genomeSingle2 = new LoopInvariantFreeGenome(services);
+        genomeSingle2.addConjunct(xLessThanY);
+    }
+
+    @Test
+    public void testTranslateToTerm_positive() {
+        setUpGenomes();
+
+        Term expected1 = termBuilder.or((JTerm) zLessThanXTerm, (JTerm) xLessThanYTerm);
+        assertEquals(expected1, genome1.translateToTerm());
+
+        Term expected2 = termBuilder.and(termBuilder.or(termBuilder.lt(one, (JTerm) yTerm), (JTerm) xLessThanYTerm),
+                termBuilder.or((JTerm) zLessThanXTerm, (JTerm) xLessThanYTerm));
+        assertEquals(expected2, genomeTwoDisjunctsTwoConjuncts.translateToTerm());
     }
 
     @Test
@@ -379,9 +409,22 @@ public class LoopInvariantFreeGenomeTests {
         assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
         assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
     }
+
     @Test
     public void testCombine_positive() {
+        setUpGenomes();
 
+        for (int i = 0; i < 16; i++) {
+            LoopInvariantFreeGenome combined = genomeSingle1.combine(genomeSingle2);
+            assertTrue(combined.size() == 2 || combined.size() == 1);
+            assertTrue(combined.getConjuncts().getFirst().getFirst().getTerm().equals(xLessThanYTerm) ||
+                    combined.getConjuncts().getFirst().getFirst().getTerm().equals(zLessThanXTerm));
+            assertTrue(combined.size() != 2 || (
+                    combined.getConjuncts().get(1).getFirst().getTerm().equals(xLessThanYTerm) ||
+                            combined.getConjuncts().get(1).getFirst().getTerm().equals(zLessThanXTerm)
+                    ));
+
+        }
     }
 
 }

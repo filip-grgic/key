@@ -44,6 +44,12 @@ public class LoopInvariantFreeGenome {
         this(services, new VerificationCondition[0]);
     }
 
+    /**
+     * Calculates the current fitness of the genome by checking all provided verification conditions whether they are
+     * valid or not where the genome represents the invariant candidate. The fitness score is the amount of valid
+     * verification conditions + 1. The additional + 1 is necessary, as the fitness score might be used as a divisor
+     * later on.
+     */
     public void checkFitness() {
         //TODO: Try different Fitness strategies: e.g. weighted VCs depending on how many generations they have been fulfilled
         fitness = 0;
@@ -61,6 +67,12 @@ public class LoopInvariantFreeGenome {
         changedSinceCalc = false;
     }
 
+    /**
+     * Translates the current state of the genome into a Term workable by KeY. The higher layer of {@code conjuncts} is
+     * translated into a conjunction and the lower layer is translated into disjunctions. The disjuncts are translated
+     * from the contained genes.
+     * @return The logical representation of this genome in the form of a conjunction.
+     */
     public Term translateToTerm() {
         TermBuilder termBuilder = services.getTermBuilder();
 
@@ -162,6 +174,11 @@ public class LoopInvariantFreeGenome {
         return 0;
     }
 
+    /**
+     * Adds the provided list of genes as a conjunct, where every element of that list represents a disjunct of a
+     * disjunction.
+     * @param conjunct that is going to be added
+     */
     public void addConjunct(List<LoopInvariantFreeGen> conjunct) {
         List<LoopInvariantFreeGen> newConjunct = new ArrayList<>();
         for (LoopInvariantFreeGen disjunct: conjunct) {
@@ -173,12 +190,20 @@ public class LoopInvariantFreeGenome {
         nameSetRefreshed = false;
     }
 
+    /**
+     * Adds the provided gen as its own conjunct into the genome.
+     * @param conjunct that is going to be added
+     */
     public void addConjunct(LoopInvariantFreeGen conjunct) {
         List<LoopInvariantFreeGen> newConjunct = new ArrayList<>();
         newConjunct.add(conjunct);
         addConjunct(newConjunct);
     }
 
+    /**
+     * Removes the conjunct at the provided index.
+     * @param index of the conjunct that should be removed.
+     */
     public void removeConjunct(int index) {
         if (index >= 0 && index < conjuncts.size()) {
             conjuncts.remove(index);
@@ -188,6 +213,11 @@ public class LoopInvariantFreeGenome {
 
     }
 
+    /**
+     * Flips the polarity of the conjunct at the provided index. Since the conjunct is a disjunction, the individual
+     * disjuncts are negated and added as conjuncts into the genome, whereas the original conjunct is removed.
+     * @param index of the conjunct that should be negated
+     */
     public void negateConjunct(int index) {
         if (index >= 0 && index < conjuncts.size()) {
             List<LoopInvariantFreeGen> conjunct = conjuncts.remove(index);
@@ -199,6 +229,11 @@ public class LoopInvariantFreeGenome {
         }
     }
 
+    /**
+     * Add the provided disjunct into the disjunction under the conjunct at the provided index.
+     * @param disjunct that should be added
+     * @param index of the position of the new disjunct
+     */
     public void addDisjunct(LoopInvariantFreeGen disjunct, int index) {
         if (index >= 0 && index < conjuncts.size()) {
             List<LoopInvariantFreeGen> conjunct = conjuncts.get(index);
@@ -209,6 +244,11 @@ public class LoopInvariantFreeGenome {
 
     }
 
+    /**
+     * Removes the disjunct at the provided indices.
+     * @param conjunctIndex the index of the conjunct
+     * @param disjunctIndex the index of the disjunct in the specified conjunct
+     */
     public void removeDisjunct(int conjunctIndex, int disjunctIndex) {
         if (conjunctIndex >= 0 && conjunctIndex < conjuncts.size() &&
                 disjunctIndex >= 0 && disjunctIndex < conjuncts.get(conjunctIndex).size()) {
@@ -223,6 +263,11 @@ public class LoopInvariantFreeGenome {
         }
     }
 
+    /**
+     * Flips the polarity of the disjunct under the provided indices.
+     * @param conjunctIndex the index of the conjunct
+     * @param disjunctIndex the index of the disjunct in the specified conjunct
+     */
     public void negateDisjunct(int conjunctIndex, int disjunctIndex) {
         if (conjunctIndex >= 0 && conjunctIndex < conjuncts.size() &&
                 disjunctIndex >= 0 && disjunctIndex < conjuncts.get(conjunctIndex).size()) {
@@ -231,6 +276,11 @@ public class LoopInvariantFreeGenome {
         }
     }
 
+    /**
+     * Checks whether the genome contains the program variable {@code programVariable} in any of the disjuncts.
+     * @param programVariable that is being searched for
+     * @return true if the genome contains the provided variable, otherwise false
+     */
     public boolean containsProgramVariable(LocationVariable programVariable) {
         refreshProgramVariableNameSet();
 
@@ -248,6 +298,11 @@ public class LoopInvariantFreeGenome {
         return false;
     }
 
+    /**
+     * Replaces any occurrence of a variable with the name {@code oldVariable} by the variable {@code newVariable}.
+     * @param oldVariable the name of the variable that should be replaced
+     * @param newVariable the variable that replaces the specified old variable
+     */
     public void replaceVariable(Name oldVariable, JAbstractSortedOperator newVariable) {
         for (List<LoopInvariantFreeGen> conjunct: conjuncts) {
             for (LoopInvariantFreeGen disjunct: conjunct) {
@@ -263,6 +318,10 @@ public class LoopInvariantFreeGenome {
         return programVariableNameSet;
     }
 
+    /**
+     * Queries all its contained disjuncts for their program variable name sets and sets the genome program variable
+     * name set to the union of all the queried sets.
+     */
     private void refreshProgramVariableNameSet() {
         if (nameSetRefreshed) {
             return;
@@ -277,6 +336,10 @@ public class LoopInvariantFreeGenome {
         nameSetRefreshed = true;
     }
 
+    /**
+     * Provides a copy of this genome that is not identical to this genome.
+     * @return the same, but non-identical genome
+     */
     public LoopInvariantFreeGenome copy() {
         LoopInvariantFreeGenome newGenome = new LoopInvariantFreeGenome(services, verificationConditions);
         for (List<LoopInvariantFreeGen> conjunct: conjuncts) {

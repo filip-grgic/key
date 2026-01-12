@@ -12,10 +12,10 @@ import java.util.*;
 
 public class EvolutionEngine {
 
-    private Services services;
-    private Term[] termPool;
-    private VerificationCondition[] verificationConditions;
-    private EvolutionEngineParameters parameters;
+    private final Services services;
+    private final Term[] termPool;
+    private final VerificationCondition[] verificationConditions;
+    private final EvolutionEngineParameters parameters;
 
     private List<LoopInvariantFreeGenome> population;
     private LoopInvariantFreeGenome solution;
@@ -69,6 +69,10 @@ public class EvolutionEngine {
 
     }
 
+    /**
+     * Initialises the evolution engine by generating a random population of the size as specified in
+     * {@code this.parameters}.
+     */
     private void init() {
         Random random = new Random();
 
@@ -86,6 +90,11 @@ public class EvolutionEngine {
         }
     }
 
+    /**
+     * The fitness score of each genome in the population is updated and sorted according to their current fitness
+     * scores. If any of these genomes is a possible solution, the evaluation phase will be aborted and the solution
+     * will be saved into {@code solution}.
+     */
     private void evaluate() {
 
         //Evaluation Phase: Check score of each individual in the population
@@ -100,6 +109,11 @@ public class EvolutionEngine {
         population.sort(LoopInvariantFreeGenome.getComparator());
     }
 
+    /**
+     * Performs the selection phase where it is decided which genomes should be paired together. Currently this is
+     * decided by fitness scores, where genomes that have a higher fitness score are more likely to be part of a pair.
+     * @return a list of selection pairs
+     */
     private List<Pair<LoopInvariantFreeGenome, LoopInvariantFreeGenome>> select() {
 
         double overallFitness = 0;
@@ -139,6 +153,12 @@ public class EvolutionEngine {
         return pairs;
     }
 
+    /**
+     * Performs the recombination phase. The provided selection pairs are iterated through and combined according to the
+     * genome's combination strategy. The resulting genomes ("children") are collected into a list and returned.
+     * @param parentPairs The selection pairs that were collected during the selection phase.
+     * @return The combined children according to the provided selection pairs.
+     */
     private List<LoopInvariantFreeGenome> recombine(List<Pair<LoopInvariantFreeGenome, LoopInvariantFreeGenome>> parentPairs) {
         List<LoopInvariantFreeGenome> children = new ArrayList<>();
         for (Pair<LoopInvariantFreeGenome, LoopInvariantFreeGenome> parentPair: parentPairs) {
@@ -147,6 +167,12 @@ public class EvolutionEngine {
         return children;
     }
 
+    /**
+     * Performs the mutation phase. All children that are the result of selection are mutated randomly through the
+     * mutations as provided in the settings. It should be guaranteed that there is some mutation that can be performed
+     * on every child, as otherwise the child won't be mutated at all.
+     * @param children that should be mutated
+     */
     private void mutate(List<LoopInvariantFreeGenome> children) {
         Random random = new Random();
         List<Mutation> mutations = parameters.getMutations();
@@ -170,8 +196,19 @@ public class EvolutionEngine {
 
     }
 
+    /**
+     * Performs the replacement phase. Adds the final children into the population, refreshes the fitness scores of all
+     * population members and cuts off the genomes with the lowest scores, s.t. the new population arrives at the
+     * specified size again.
+     * @param mutatedChildren the final children after the mutation phase.
+     */
     private void replace(List<LoopInvariantFreeGenome> mutatedChildren) {
         population.addAll(mutatedChildren);
+
+        for (LoopInvariantFreeGenome genome : population) {
+            genome.checkFitness();
+        }
+
         population.sort(LoopInvariantFreeGenome.getComparator());
         population = population.subList(0, parameters.getPopulationSize());
     }
