@@ -13,8 +13,7 @@ public class NegateConjunctMutation extends Mutation {
 
     @Override
     public void mutate(LoopInvariantFreeGenome genome) {
-        Random random = new Random();
-        genome.negateConjunct(random.nextInt(genome.size()));
+        genome.negateRandomConjunct();
     }
 
     @Override

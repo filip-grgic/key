@@ -13,8 +13,7 @@ public class DeleteConjunctMutation extends Mutation{
 
     @Override
     public void mutate(LoopInvariantFreeGenome genome) {
-        Random random = new Random();
-        genome.removeConjunct(random.nextInt(genome.size()));
+        genome.removeRandomConjunct();
     }
 
     @Override

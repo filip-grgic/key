@@ -2,47 +2,61 @@ package de.uka.ilkd.key.util.loop_inv_generation.mutations;
 
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGenome;
+import de.uka.ilkd.key.util.loop_inv_generation.util.RandomAccessSet;
 import org.key_project.logic.Name;
+import org.key_project.logic.Term;
+import org.key_project.logic.sort.Sort;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
 public class ReplaceVariableMutation extends Mutation {
-    public ReplaceVariableMutation(Set<LocationVariable> programVariableSet) {
-        super(null, null, programVariableSet);
+    public ReplaceVariableMutation(Map<Sort, RandomAccessSet<Term>> termSortSet) {
+        super(null, null, termSortSet);
     }
 
     @Override
     public void mutate(LoopInvariantFreeGenome genome) {
-        Random random = new Random();
-        Set<Name> genomeVariableNameSet = genome.getProgramVariableNameSet();
-        int genomeSetIndex = random.nextInt(genomeVariableNameSet.size());
-        int globalSetIndex = random.nextInt(programVariableSet.size());
+        Term genomeTerm = genome.getContainingTerms().getRandomElement();
+        RandomAccessSet<Term> sortedPool = termSortSet.get(genomeTerm.sort());
 
-        Name genomeLocVariableName = null;
-        LocationVariable globalLocVariable = null;
+        Term globalTerm = genomeTerm;
 
-        for (Name genomePotentialVariableName: genomeVariableNameSet) {
-            if (genomeSetIndex == 0) {
-                genomeLocVariableName = genomePotentialVariableName;
-                break;
-            }
-            genomeSetIndex--;
+        while (globalTerm.equals(genomeTerm)) {
+            globalTerm = sortedPool.getRandomElement();
         }
 
-        for (LocationVariable globalPotentialVariable: programVariableSet) {
-            if (globalSetIndex == 0) {
-                globalLocVariable = globalPotentialVariable;
-                break;
-            }
-            globalSetIndex--;
-        }
+        genome.replaceTerm(genomeTerm, globalTerm);
 
-        genome.replaceVariable(genomeLocVariableName, globalLocVariable);
+//        Map<Name, Sort> genomeVariableNameMap = genome.getProgramVariableNameMap();
+//        int genomeSetIndex = random.nextInt(genomeVariableNameMap.size());
+//
+//        Name genomeLocVariableName = null;
+//        Sort genomeLocVariableSort = null;
+//        LocationVariable globalLocVariable = null;
+//
+//        for (Name genomePotentialVariableName : genomeVariableNameMap.keySet()) {
+//            if (genomeSetIndex == 0) {
+//                genomeLocVariableName = genomePotentialVariableName;
+//                genomeLocVariableSort = genomeVariableNameMap.get(genomePotentialVariableName);
+//                break;
+//            }
+//            genomeSetIndex--;
+//        }
+//
+//        Sort finalGenomeLocVariableSort = genomeLocVariableSort;
+//        List<LocationVariable> sortedVars = programVariableSet.stream()
+//                .filter((variable) -> variable.sort() == finalGenomeLocVariableSort).toList();
+//        int sortedVarsIndex = random.nextInt(sortedVars.size());
+//        globalLocVariable = sortedVars.get(sortedVarsIndex);
+//
+//        genome.replaceVariable(genomeLocVariableName, genomeLocVariableSort, globalLocVariable);
     }
 
     @Override
     public boolean suitableForMutation(LoopInvariantFreeGenome genome) {
-        return genome.size() > 0 && !genome.getProgramVariableNameSet().isEmpty();
+        return genome.size() > 0;
     }
 }

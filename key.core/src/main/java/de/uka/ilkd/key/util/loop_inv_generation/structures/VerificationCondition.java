@@ -66,8 +66,10 @@ public class VerificationCondition {
     public boolean checkFulfillment(LoopInvariantFreeGenome genome) {
         Term preparedCandidate = createQuantification(genome);
 
-        sequent.addFormula(new SequentFormula(preparedCandidate), true, true);
-        SMTProblem smtProblem = new SMTProblem(sequent, services);
+        Sequent resultingSequent = sequent.addFormula(new SequentFormula(preparedCandidate), true, true)
+                .sequent();
+
+        SMTProblem smtProblem = new SMTProblem(resultingSequent, services);
         SMTSettings smtSettings = new DefaultSMTSettings(
                 services.getProof().getSettings().getSMTSettings(),
                 ProofIndependentSMTSettings.getDefaultSettingsData(),

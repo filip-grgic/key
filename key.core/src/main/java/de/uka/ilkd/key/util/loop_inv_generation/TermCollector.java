@@ -2,6 +2,8 @@ package de.uka.ilkd.key.util.loop_inv_generation;
 
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.DefaultVisitor;
+import de.uka.ilkd.key.logic.JTerm;
+import de.uka.ilkd.key.logic.TermFactory;
 import de.uka.ilkd.key.logic.op.*;
 import org.key_project.logic.Term;
 import org.key_project.logic.op.Operator;
@@ -12,24 +14,40 @@ public class TermCollector implements DefaultVisitor {
 
     private final HashSet<Term> result = new LinkedHashSet<>();
     private final HashMap<Term, List<Term>> parentsMap = new HashMap<>();
+//    //TODO: Need to incorporate quantors
+//    private final List<Class<? extends Operator>> allowedOperators = Arrays.asList(
+//            Junctor.class, Quantifier.class, Equality.class, JFunction.class, SortDependingFunction.class
+//    );
     private final List<Class<? extends Operator>> allowedOperators = Arrays.asList(
-            Junctor.class, Quantifier.class, Equality.class, JFunction.class, SortDependingFunction.class
+            Junctor.class, Equality.class, JFunction.class, SortDependingFunction.class
     );
     private final List<Class<? extends Operator>> forbiddenOperators = Arrays.asList(
          JModality.class, UpdateApplication.class
     );
+    private Services services;
+    private TermFactory termFactory;
+
+    public TermCollector(Services services) {
+        this.services = services;
+        this.termFactory = services.getTermFactory();
+    }
 
     @Override
     public void visit(Term visited) {
 
-        if (forbiddenOperators.contains(visited.op().getClass())) {
-            // Should purge all occurrences of the defined operators from the result
-            removeAncestors(visited);
-        } else if (allowedOperators.contains(visited.op().getClass())) {
-            result.add(visited);
+//        if (forbiddenOperators.contains(visited.op().getClass())) {
+//            // Should purge all occurrences of the defined operators from the result
+//            removeAncestors(visited);
+//        } else if (allowedOperators.contains(visited.op().getClass())) {
+//            result.add(visited);
+//        }
+//        // Operators that are not present in either forbiddenOperators or allowedOperators (like LogicVariable or
+//        // ProgramVariable) are allowed to exist as a subterm but should not be added as a singular term in the result
+
+        if (visited.op().name().toString().equals("leq") || visited.op().name().toString().equals("le") ||
+                visited.op().name().toString().equals("geq") || visited.op().name().toString().equals("ge")) {
+            result.add(termFactory.createTerm((JTerm) visited));
         }
-        // Operators that are not present in either forbiddenOperators or allowedOperators (like LogicVariable or
-        // ProgramVariable) are allowed to exist as a subterm but should not be added as a singular term in the result
 
 
         // Add new parent child relations to the parentsMap

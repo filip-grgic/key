@@ -5,14 +5,17 @@ import de.uka.ilkd.key.ldt.IntegerLDT;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.TermFactory;
-import de.uka.ilkd.key.logic.op.JAbstractSortedOperator;
 import de.uka.ilkd.key.logic.op.LocationVariable;
-import de.uka.ilkd.key.logic.op.LogicVariable;
 import de.uka.ilkd.key.proof.TermProgramVariableCollector;
+import de.uka.ilkd.key.util.loop_inv_generation.TermSortCollector;
+import de.uka.ilkd.key.util.loop_inv_generation.util.RandomAccessSet;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
 import org.key_project.logic.op.AbstractSortedOperator;
 import org.key_project.logic.sort.Sort;
+
+import java.util.ArrayList;
+import java.util.HashSet;
 
 public class LoopInvariantFreeGen extends LoopInvariantGen {
 
@@ -30,9 +33,15 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         // Check whether term is negated and save non-negated term
         Term nonNegatedTerm = extractedNonNegatedTerm(clonedTerm);
 
+        if (nonNegatedTerm.op().equals(integerLDT.getGreaterThan())) {
+            nonNegatedTerm = termFactory.createTerm(integerLDT.getLessThan(), (JTerm) nonNegatedTerm.sub(1), (JTerm) nonNegatedTerm.sub(0));
+        } else if (nonNegatedTerm.op().equals(integerLDT.getGreaterOrEquals())) {
+            nonNegatedTerm = termFactory.createTerm(integerLDT.getLessOrEquals(), (JTerm) nonNegatedTerm.sub(1), (JTerm) nonNegatedTerm.sub(0));
+        }
+
         // Check whether the operator is < or <= as per normalisation
         if (!(nonNegatedTerm.op().equals(integerLDT.getLessThan()) || nonNegatedTerm.op().equals(integerLDT.getLessOrEquals()))) {
-            throw new IllegalArgumentException(String.format("The operator in the non-negated term must be either \"less than\" or \"less or equals\", but is %s: %s ",
+            throw new IllegalArgumentException(String.format("The operator in the non-negated term must be either \"less/greater than\" or \"less/greater or equals\", but is %s: %s ",
                     nonNegatedTerm.op(), nonNegatedTerm));
         }
 
@@ -47,12 +56,16 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
             throw new IllegalArgumentException(String.format("The right side is not an integer: %s", right));
         }
 
-        // Collect all program variables
-        TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
-        nonNegatedTerm.execPostOrder(pvc);
-        programVariableNameSet.addAll(pvc.result().stream().map(LocationVariable::name).toList());
+//        // Collect all program variables
+//        TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
+//        nonNegatedTerm.execPostOrder(pvc);
+//        pvc.result().forEach((variable) -> {
+//                programVariableNameMap.put(variable.name(), variable.sort());
+//        });
 
         this.term = nonNegatedTerm;
+
+        collectAllTerms();
     }
 
     public LoopInvariantFreeGen(LoopInvariantFreeGen other) {
@@ -86,31 +99,56 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         return result;
     }
 
-    /**
-     * Replace all occurrences of oldVariable with newVariable in the term.
-     * @param oldVariable the variable that should be replaced
-     * @param newVariable the variable that should replace oldVariable
-     */
-    @Override
-    public void replaceVariable(LocationVariable oldVariable, AbstractSortedOperator newVariable) {
-        if (oldVariable == null) {
-            return;
+//    /**
+//     * Replace all occurrences of oldVariable with newVariable in the term.
+//     * @param oldVariable the variable that should be replaced
+//     * @param newVariable the variable that should replace oldVariable
+//     */
+//    @Override
+//    public void replaceVariable(LocationVariable oldVariable, AbstractSortedOperator newVariable) {
+//        if (oldVariable == null) {
+//            return;
+//        }
+//
+//        replaceVariable(oldVariable.name(), oldVariable.sort(), newVariable);
+//    }
+
+//    @Override
+//    public void replaceVariable(Name oldVariableName, Sort oldVariableSort, AbstractSortedOperator newVariable) {
+//        if (!containsProgramVariable(oldVariableName) || oldVariableName == null || newVariable == null) {
+//            return;
+//        }
+//
+//        if (oldVariableSort != newVariable.sort()) {
+//            throw new IllegalArgumentException("The old variable and the new variable don't share the same sort.\n" +
+//                    "Old variable sort: " + oldVariableSort + "\n" +
+//                    "New variable sort: " + newVariable.sort());
+//        }
+//
+//        term = services.getTermBuilder().replaceVariable(term, oldVariableName, newVariable);
+//
+//        programVariableNameMap.remove(oldVariableName);
+//        programVariableNameMap.put(newVariable.name(), oldVariableSort);
+
+//    }
+
+    private void collectAllTerms() {
+        //Collect all integer terms
+        containingTerms = new RandomAccessSet<>();
+        TermSortCollector tsc = new TermSortCollector(services);
+        term.execPostOrder(tsc);
+        for (Sort sort : tsc.result().keySet()) {
+            containingTerms.addAll(tsc.result().get(sort));
         }
-        replaceVariable(oldVariable.name(), newVariable);
     }
 
-    @Override
-    public void replaceVariable(Name oldVariableName, AbstractSortedOperator newVariable) {
-        if (!containsProgramVariable(oldVariableName) || oldVariableName == null || newVariable == null) {
+    public void replaceTerm(Term oldTerm, Term newTerm) {
+        if (!oldTerm.sort().equals(newTerm.sort())) {
             return;
         }
 
-        term = services.getTermBuilder().replaceVariable(term, oldVariableName, newVariable);
-
-        programVariableNameSet.remove(oldVariableName);
-        programVariableNameSet.add(newVariable.name());
+        term = services.getTermBuilder().replaceContainingTerm(term, oldTerm, newTerm);
     }
-
 
     @Override
     public boolean equals(Object obj) {
@@ -121,6 +159,14 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         }
 
         return term.equals(other.term) && affirmative == other.affirmative;
+    }
+
+    @Override
+    public int hashCode() {
+        int hashCode = 11;
+        hashCode = hashCode * 31 + term.hashCode();
+        hashCode = hashCode * 31 + (affirmative ? 1 : 0);
+        return hashCode;
     }
 
     public LoopInvariantFreeGen copy() {

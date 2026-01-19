@@ -27,6 +27,7 @@ import de.uka.ilkd.key.strategy.StrategyProperties;
 import de.uka.ilkd.key.util.ProofStarter;
 import de.uka.ilkd.key.util.SideProofUtil;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.VerificationCondition;
+import de.uka.ilkd.key.util.loop_inv_generation.util.RandomAccessSet;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
@@ -34,17 +35,16 @@ import org.key_project.prover.engine.ProofSearchInformation;
 import org.key_project.prover.sequent.Sequent;
 import org.key_project.prover.sequent.SequentFormula;
 import org.key_project.util.collection.ImmutableList;
+import org.key_project.util.collection.Pair;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class EvolutionaryLoopInvariantGenerator {
 
     private final Services services;
     private Term[] sequentTerms;
-    private Set<Name> programVariableNameSet;
+//    private Set<LocationVariable> programVariableSet;
     private static final SolverType Z3_SOLVER = SolverTypes.getSolverTypes().stream()
             .filter(it -> it.getClass().equals(SolverTypeImplementation.class)
                     && it.getName().equals("Z3"))
@@ -52,68 +52,27 @@ public class EvolutionaryLoopInvariantGenerator {
 
     public EvolutionaryLoopInvariantGenerator(Services services) {
         this.services = services;
+//        this.programVariableSet = new HashSet<>();
     }
 
     public void generateLoopInvariant() {
+        Sequent runningSequent = services.getProof().openGoals().head().sequent();
+        var termSorts = collectTermSorts(runningSequent);
+
         VerificationCondition[] verificationConditions = generateVerificationConditions();
 
-//        for (Goal goal: verificationConditions) {
-//            System.out.println("-------------------------------------------------------");
-//            System.out.println(ProofSaver.printAnything(goal.node().sequent(), services));
-//        }
-//        SMTProblem smtProblem = new SMTProblem(verificationConditions.get(0));
+        EvolutionEngineParameters engineParameters = new EvolutionEngineParameters(sequentTerms, termSorts, services);
+        engineParameters.setGenerations(5);
 
+        EvolutionEngine engine = new EvolutionEngine(services, sequentTerms, verificationConditions, engineParameters);
+        engine.launch();
 
-//        /*
-//        Test the following SMT problem:
-//        (set-logic QF_LIA)
-//        (declare-const x Int)
-//        (declare-const y Int)
-//        (assert (=> (and (= 3 (+ x y)) (= 2 x)) (= 1 y)))
-//        (check-sat)
-//        (exit)
-//         */
-//        TermBuilder tb = services.getTermBuilder();
-//        Sort integerSort = services.getTypeConverter().getIntegerLDT().targetSort();
-//        LocationVariable x = tb.locationVariable("x", integerSort, true);
-//        LocationVariable y = tb.locationVariable("y", integerSort, true);
-//        JTerm xVar = tb.var(x);
-//        JTerm yVar = tb.var(y);
-//        Term antecedent1 = tb.equals(tb.add(xVar, yVar), tb.zTerm(3));
-//        Term antecedent2 = tb.equals(xVar, tb.zTerm(2));
-//        Term succedentTerm = tb.equals(yVar, tb.zTerm(1));
-//
-//        ImmutableList<SequentFormula> antecedent = ImmutableList.of(new SequentFormula(antecedent1), new SequentFormula(antecedent2));
-//        ImmutableList<SequentFormula> succedent = ImmutableList.of(new SequentFormula(succedentTerm));
-//
-//        Sequent sequent = JavaDLSequentKit.createSequent(antecedent, succedent);
-//
-//        ProofEnvironment proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
-//        ProofStarter proofStarter = new ProofStarter(false);
-//        try {
-//            proofStarter.init(sequent, proofEnv, "Invariant Generation");
-//        } catch (ProofInputException ex) {
-//            //TODO: Solve gracefully
-//            throw new RuntimeException(ex);
-//        }
-//
-//        Proof sideProof = proofStarter.getProof();
-//        Services sideServices = sideProof.getServices();
-//
-//        SMTProblem smtProblem = new SMTProblem(sequent, sideServices);
-//        SMTSettings settings = new DefaultSMTSettings(
-//                sideProof.getSettings().getSMTSettings(),
-////                ProofDependentSMTSettings.getDefaultSettingsData(),
-//                ProofIndependentSMTSettings.getDefaultSettingsData(),
-//                new NewSMTTranslationSettings(),
-//                sideProof
-//        );
-//        SolverLauncher launcher = new SolverLauncher(settings);
-//        launcher.launch(smtProblem, sideServices, Z3_SOLVER);
-//
-//        System.out.printf("SMT Problem result: %s%n", smtProblem.getFinalResult());
-
-
+        if (engine.hasSolution()) {
+            System.out.println("Found an invariant solution");
+            System.out.println(engine.getSolution());
+        } else {
+            System.out.println("Did not find an invariant solution");
+        }
     }
 
     private VerificationCondition[] generateVerificationConditions() {
@@ -126,6 +85,7 @@ public class EvolutionaryLoopInvariantGenerator {
 
         // Get all program variables and extract their sorts for the fresh invariant
         LocationVariable[] locationVariables = collectAllProgramVariables(runningSequent);
+//        programVariableSet = new HashSet<>(List.of(locationVariables));
         Sort[] predicateParameterSorts =  new Sort[locationVariables.length];
         JTerm[] predicateParameterTerms = new JTerm[locationVariables.length];
 
@@ -174,16 +134,18 @@ public class EvolutionaryLoopInvariantGenerator {
 
     private LocationVariable[] collectAllProgramVariables(Sequent sequent) {
         Set<LocationVariable> locationVariableSet = new HashSet<>();
-        programVariableNameSet = new HashSet<>();
 
         //Collect all program variables, as we need it for the fresh invariant
         for (SequentFormula sf: sequent.asList()) {
             TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
             sf.formula().execPostOrder(pvc);
             locationVariableSet.addAll(pvc.result());
-
-            locationVariableSet.stream().map(LocationVariable::name).forEach(programVariableNameSet::add);
         }
+
+        //TODO: Implement for other types than integer as well
+        locationVariableSet = locationVariableSet.stream().filter((locVar) ->
+            locVar.sort() == services.getTypeConverter().getIntegerLDT().targetSort()
+        ).collect(Collectors.toSet());
 
         return locationVariableSet.toArray(new LocationVariable[0]);
     }
@@ -192,12 +154,29 @@ public class EvolutionaryLoopInvariantGenerator {
         Set<Term> termSet = new HashSet<>();
 
         for (SequentFormula sf: sequent.asList()) {
-            TermCollector termCollector = new TermCollector();
+            TermCollector termCollector = new TermCollector(services);
             sf.formula().execPostOrder(termCollector);
             termSet.addAll(termCollector.result());
         }
 
         return termSet.toArray(new Term[0]);
+    }
+
+    private Map<Sort, RandomAccessSet<Term>> collectTermSorts(Sequent sequent) {
+        Map<Sort, RandomAccessSet<Term>> sortMap = new HashMap<>();
+
+        for (SequentFormula sf: sequent.asList()) {
+            TermSortCollector termSortCollector = new TermSortCollector(services);
+            sf.formula().execPostOrder(termSortCollector);
+            termSortCollector.result().forEach((key, value) -> {
+                if (!sortMap.containsKey(key)) {
+                    sortMap.put(key, new RandomAccessSet<>());
+                }
+                sortMap.get(key).addAll(value);
+            });
+        }
+
+        return sortMap;
     }
 
     private Sequent createSideproofSequent(Sequent sequent, TermBuilder envTermBuilder, Sort[] predicateParameterSorts,

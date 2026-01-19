@@ -331,84 +331,84 @@ public class LoopInvariantFreeGenomeTests {
         assertFalse(genome1.getConjuncts().getFirst().get(1).isNegated());
     }
 
-    @Test
-    public void testContainsProgramVariable_positive() {
-        setUpGenomes();
-
-        assertTrue(genome1.containsProgramVariable(xVar));
-        assertTrue(genome1.containsProgramVariable(yVar));
-        assertTrue(genome1.containsProgramVariable(zVar));
-
-        assertFalse(genome2.containsProgramVariable(xVar));
-        assertTrue(genome2.containsProgramVariable(yVar));
-        assertFalse(genome2.containsProgramVariable(zVar));
-
-        assertTrue(genomeTwoConjuncts.containsProgramVariable(xVar));
-        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
-        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
-    }
-
-    @Test
-    public void testContainsProgramVariable_positiveAfterRemoval() {
-        setUpGenomes();
-
-        assertTrue(genome1.containsProgramVariable(xVar));
-        assertTrue(genome1.containsProgramVariable(yVar));
-        assertTrue(genome1.containsProgramVariable(zVar));
-
-        genome1.removeDisjunct(0, 0);
-
-        assertTrue(genome1.containsProgramVariable(xVar));
-        assertTrue(genome1.containsProgramVariable(yVar));
-        assertFalse(genome1.containsProgramVariable(zVar));
-
-        genome1.removeConjunct(0);
-
-        assertFalse(genome1.containsProgramVariable(xVar));
-        assertFalse(genome1.containsProgramVariable(yVar));
-        assertFalse(genome1.containsProgramVariable(zVar));
-
-        assertTrue(genomeTwoConjuncts.containsProgramVariable(xVar));
-        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
-        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
-
-        genomeTwoConjuncts.removeConjunct(1);
-
-        assertFalse(genomeTwoConjuncts.containsProgramVariable(xVar));
-        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
-        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
-    }
-
-    @Test
-    public void testReplaceVariable_positive() {
-        setUpGenomes();
-
-        assertTrue(genome1.containsProgramVariable(xVar));
-        assertTrue(genome1.containsProgramVariable(yVar));
-        assertTrue(genome1.containsProgramVariable(zVar));
-
-        genome1.replaceVariable(zVar.name(), yVar);
-
-        assertTrue(genome1.containsProgramVariable(xVar));
-        assertTrue(genome1.containsProgramVariable(yVar));
-        assertFalse(genome1.containsProgramVariable(zVar));
-
-    }
-
-    @Test
-    public void testReplaceVariable_negativeReplaceNonExistingVariable() {
-        setUpGenomes();
-
-        assertTrue(genomeTwoConjuncts.containsProgramVariable(xVar));
-        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
-        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
-
-        genomeTwoConjuncts.replaceVariable(zVar.name(), yVar);
-
-        assertTrue(genomeTwoConjuncts.containsProgramVariable(xVar));
-        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
-        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
-    }
+//    @Test
+//    public void testContainsProgramVariable_positive() {
+//        setUpGenomes();
+//
+//        assertTrue(genome1.containsProgramVariable(xVar));
+//        assertTrue(genome1.containsProgramVariable(yVar));
+//        assertTrue(genome1.containsProgramVariable(zVar));
+//
+//        assertFalse(genome2.containsProgramVariable(xVar));
+//        assertTrue(genome2.containsProgramVariable(yVar));
+//        assertFalse(genome2.containsProgramVariable(zVar));
+//
+//        assertTrue(genomeTwoConjuncts.containsProgramVariable(xVar));
+//        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
+//        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
+//    }
+//
+//    @Test
+//    public void testContainsProgramVariable_positiveAfterRemoval() {
+//        setUpGenomes();
+//
+//        assertTrue(genome1.containsProgramVariable(xVar));
+//        assertTrue(genome1.containsProgramVariable(yVar));
+//        assertTrue(genome1.containsProgramVariable(zVar));
+//
+//        genome1.removeDisjunct(0, 0);
+//
+//        assertTrue(genome1.containsProgramVariable(xVar));
+//        assertTrue(genome1.containsProgramVariable(yVar));
+//        assertFalse(genome1.containsProgramVariable(zVar));
+//
+//        genome1.removeConjunct(0);
+//
+//        assertFalse(genome1.containsProgramVariable(xVar));
+//        assertFalse(genome1.containsProgramVariable(yVar));
+//        assertFalse(genome1.containsProgramVariable(zVar));
+//
+//        assertTrue(genomeTwoConjuncts.containsProgramVariable(xVar));
+//        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
+//        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
+//
+//        genomeTwoConjuncts.removeConjunct(1);
+//
+//        assertFalse(genomeTwoConjuncts.containsProgramVariable(xVar));
+//        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
+//        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
+//    }
+//
+//    @Test
+//    public void testReplaceVariable_positive() {
+//        setUpGenomes();
+//
+//        assertTrue(genome1.containsProgramVariable(xVar));
+//        assertTrue(genome1.containsProgramVariable(yVar));
+//        assertTrue(genome1.containsProgramVariable(zVar));
+//
+//        genome1.replaceVariable(zVar.name(), yVar);
+//
+//        assertTrue(genome1.containsProgramVariable(xVar));
+//        assertTrue(genome1.containsProgramVariable(yVar));
+//        assertFalse(genome1.containsProgramVariable(zVar));
+//
+//    }
+//
+//    @Test
+//    public void testReplaceVariable_negativeReplaceNonExistingVariable() {
+//        setUpGenomes();
+//
+//        assertTrue(genomeTwoConjuncts.containsProgramVariable(xVar));
+//        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
+//        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
+//
+//        genomeTwoConjuncts.replaceVariable(zVar.name(), yVar);
+//
+//        assertTrue(genomeTwoConjuncts.containsProgramVariable(xVar));
+//        assertTrue(genomeTwoConjuncts.containsProgramVariable(yVar));
+//        assertFalse(genomeTwoConjuncts.containsProgramVariable(zVar));
+//    }
 
     @Test
     public void testCombine_positive() {

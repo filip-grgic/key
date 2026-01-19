@@ -1,13 +1,12 @@
 package de.uka.ilkd.key.util.loop_inv_generation;
 
 import de.uka.ilkd.key.java.Services;
-import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.util.loop_inv_generation.mutations.*;
+import de.uka.ilkd.key.util.loop_inv_generation.util.RandomAccessSet;
 import org.key_project.logic.Term;
+import org.key_project.logic.sort.Sort;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class EvolutionEngineParameters {
 
@@ -16,12 +15,15 @@ public class EvolutionEngineParameters {
     private int populationSize = 10;
     private double replacementRate = 0.5;
     private final List<Mutation> mutations = new ArrayList<>();
+    private final List<Integer> mutationProbabilities = new ArrayList<>();
     private Term[] termPool;
-    private final Set<LocationVariable> programVariableSet;
+//    private final Set<LocationVariable> programVariableSet;
+    protected final Map<Sort, RandomAccessSet<Term>> termSortSet;
     private final Services services;
 
-    public EvolutionEngineParameters(Set<LocationVariable> programVariableSet, Services services) {
-        this.programVariableSet = programVariableSet;
+    public EvolutionEngineParameters(Term[] termPool, Map<Sort, RandomAccessSet<Term>> termSortSet, Services services) {
+        this.termPool = termPool;
+        this.termSortSet = termSortSet;
         this.services = services;
         addMutations();
     }
@@ -56,14 +58,31 @@ public class EvolutionEngineParameters {
         return mutations;
     }
 
+    public List<Integer> getMutationProbabilities() {
+        return mutationProbabilities;
+    }
+
     private void addMutations() {
         mutations.add(new AddConjunctMutation(services, termPool));
+        mutationProbabilities.add(2);
+
         mutations.add(new AddDisjunctMutation(services, termPool));
+        mutationProbabilities.add(mutationProbabilities.getLast() + 2);
+
         mutations.add(new DeleteConjunctMutation());
+        mutationProbabilities.add(mutationProbabilities.getLast() + 2);
+
         mutations.add(new DeleteDisjunctMutation());
+        mutationProbabilities.add(mutationProbabilities.getLast() + 2);
+
         mutations.add(new NegateConjunctMutation());
+        mutationProbabilities.add(mutationProbabilities.getLast() + 1);
+
         mutations.add(new NegateDisjunctMutation());
-        mutations.add(new ReplaceVariableMutation(programVariableSet));
+        mutationProbabilities.add(mutationProbabilities.getLast() + 1);
+
+        mutations.add(new ReplaceVariableMutation(termSortSet));
+        mutationProbabilities.add(mutationProbabilities.getLast() + 6);
     }
 
     public void setTermPool(Term[] termPool) {

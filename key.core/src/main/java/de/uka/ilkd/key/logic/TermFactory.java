@@ -111,10 +111,10 @@ public final class TermFactory {
     public JTerm createTerm(JTerm term) {
         Operator op = term.op();
         ImmutableArray<QuantifiableVariable> boundVars = term.boundVars();
-        ImmutableArray<TermLabel> labels = term.getLabels();
+//        ImmutableArray<TermLabel> labels = term.getLabels();
 
         if (term.subs().isEmpty()) {
-            return createTerm(op, NO_SUBTERMS, boundVars, labels);
+            return createTerm(op, NO_SUBTERMS, boundVars, null);
         }
 
         List<JTerm> newSubs = new ArrayList<>();
@@ -124,7 +124,7 @@ public final class TermFactory {
 
         ImmutableArray<JTerm> immutableNewSubs = new ImmutableArray<>(newSubs);
 
-        return createTerm(op, immutableNewSubs, boundVars, labels);
+        return createTerm(op, immutableNewSubs, boundVars, null);
     }
 
     // -------------------------------------------------------------------------

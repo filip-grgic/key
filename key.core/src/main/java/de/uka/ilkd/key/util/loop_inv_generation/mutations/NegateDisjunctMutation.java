@@ -13,10 +13,7 @@ public class NegateDisjunctMutation extends Mutation {
 
     @Override
     public void mutate(LoopInvariantFreeGenome genome) {
-        Random random = new Random();
-        int conjunctIndex = random.nextInt(genome.size());
-        int disjunctIndex = random.nextInt(genome.getConjunctSize(conjunctIndex));
-        genome.negateDisjunct(conjunctIndex, disjunctIndex);
+        genome.getRandomConjunct().getRandomElement().negate();
     }
 
     @Override

@@ -2184,10 +2184,10 @@ public class TermBuilder {
     public Term replaceVariable(Term term, Name oldVariableName, AbstractSortedOperator newVariable) {
 
         if (term.op().name().equals(oldVariableName)) {
-            if (term.op() instanceof LocationVariable) {
-                return services.getTermBuilder().var((LocationVariable) newVariable);
-            } else if (term.op() instanceof LogicVariable) {
+            if (newVariable instanceof LogicVariable) {
                 return services.getTermBuilder().var((LogicVariable) newVariable);
+            } else if (newVariable instanceof LocationVariable) {
+                return services.getTermBuilder().var((LocationVariable) newVariable);
             }
         } else if (term.arity() == 0) {
             return term;
@@ -2198,6 +2198,21 @@ public class TermBuilder {
         for (int i = 0; i < oldSubs.size(); i++) {
             //TODO: Handle subs being null
             newSubs[i] = (JTerm) replaceVariable(oldSubs.get(i), oldVariableName, newVariable);
+        }
+
+        return services.getTermFactory().createTerm(term.op(), newSubs);
+    }
+
+    public Term replaceContainingTerm(Term term, Term oldTerm, Term newTerm) {
+        if (term.equals(oldTerm)) {
+            return services.getTermFactory().createTerm((JTerm) newTerm);
+        }
+
+        var oldSubs = term.subs();
+        JTerm[] newSubs = new JTerm[oldSubs.size()];
+        for (int i = 0; i < oldSubs.size(); i++) {
+            //TODO: Handle subs being null
+            newSubs[i] = (JTerm) replaceContainingTerm(oldSubs.get(i), oldTerm, newTerm);
         }
 
         return services.getTermFactory().createTerm(term.op(), newSubs);

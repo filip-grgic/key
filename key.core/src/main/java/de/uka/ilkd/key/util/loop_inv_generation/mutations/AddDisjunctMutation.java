@@ -18,8 +18,7 @@ public class AddDisjunctMutation extends Mutation {
     public void mutate(LoopInvariantFreeGenome genome) {
         Random random = new Random();
         Term term = termPool[random.nextInt(termPool.length)];
-        int insertIndex = random.nextInt(genome.size());
-        genome.addDisjunct(new LoopInvariantFreeGen(services, term),  insertIndex);
+        genome.getRandomConjunct().add(new LoopInvariantFreeGen(services, term));
     }
 
     @Override
