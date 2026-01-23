@@ -135,7 +135,7 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
     private void collectAllTerms() {
         //Collect all integer terms
         containingTerms = new RandomAccessSet<>();
-        TermSortCollector tsc = new TermSortCollector(services);
+        TermSortCollector tsc = new TermSortCollector(services, false);
         term.execPostOrder(tsc);
         for (Sort sort : tsc.result().keySet()) {
             containingTerms.addAll(tsc.result().get(sort));

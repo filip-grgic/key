@@ -44,10 +44,14 @@ public class EvolutionaryLoopInvariantGenerator {
 
     private final Services services;
     private Term[] sequentTerms;
-//    private Set<LocationVariable> programVariableSet;
-    private static final SolverType Z3_SOLVER = SolverTypes.getSolverTypes().stream()
+    //    private Set<LocationVariable> programVariableSet;
+//    private static final SolverType Z3_SOLVER = SolverTypes.getSolverTypes().stream()
+//            .filter(it -> it.getClass().equals(SolverTypeImplementation.class)
+//                    && it.getName().equals("Z3"))
+//            .findFirst().orElse(null);
+    private static final SolverType CVC5_SOLVER = SolverTypes.getSolverTypes().stream()
             .filter(it -> it.getClass().equals(SolverTypeImplementation.class)
-                    && it.getName().equals("Z3"))
+                    && it.getName().equals("cvc5"))
             .findFirst().orElse(null);
 
     public EvolutionaryLoopInvariantGenerator(Services services) {
@@ -57,12 +61,16 @@ public class EvolutionaryLoopInvariantGenerator {
 
     public void generateLoopInvariant() {
         Sequent runningSequent = services.getProof().openGoals().head().sequent();
-        var termSorts = collectTermSorts(runningSequent);
+//        var termSorts = collectTermSorts(runningSequent);
 
         VerificationCondition[] verificationConditions = generateVerificationConditions();
 
+        var termSorts = collectTermSorts(verificationConditions);
+
         EvolutionEngineParameters engineParameters = new EvolutionEngineParameters(sequentTerms, termSorts, services);
-        engineParameters.setGenerations(5);
+        engineParameters.setGenerations(40);
+        engineParameters.setPopulationSize(10);
+        engineParameters.setEvaluationThreads(1);
 
         EvolutionEngine engine = new EvolutionEngine(services, sequentTerms, verificationConditions, engineParameters);
         engine.launch();
@@ -86,7 +94,7 @@ public class EvolutionaryLoopInvariantGenerator {
         // Get all program variables and extract their sorts for the fresh invariant
         LocationVariable[] locationVariables = collectAllProgramVariables(runningSequent);
 //        programVariableSet = new HashSet<>(List.of(locationVariables));
-        Sort[] predicateParameterSorts =  new Sort[locationVariables.length];
+        Sort[] predicateParameterSorts = new Sort[locationVariables.length];
         JTerm[] predicateParameterTerms = new JTerm[locationVariables.length];
 
         for (int i = 0; i < locationVariables.length; i++) {
@@ -110,7 +118,7 @@ public class EvolutionaryLoopInvariantGenerator {
         Services sideServices = sideProof.getServices();
 
         // Add the loop specifications to the repository s.t. KeY can use the invariants for the specified loops
-        for (LoopSpecification loopSpec: loopSpecs) {
+        for (LoopSpecification loopSpec : loopSpecs) {
             sideServices.getSpecificationRepository().addLoopInvariant(loopSpec);
         }
 
@@ -122,11 +130,11 @@ public class EvolutionaryLoopInvariantGenerator {
     }
 
     private VerificationCondition[] convertGoalsToVerificationConditions(ImmutableList<Goal> goals, List<LoopSpecification> loopSpecs) {
-        VerificationCondition[] result = new  VerificationCondition[goals.size()];
+        VerificationCondition[] result = new VerificationCondition[goals.size()];
 
-        for(int i = 0; i < goals.size(); i++) {
+        for (int i = 0; i < goals.size(); i++) {
             //TODO: Implement for multiple possible loop specifications
-            result[i] = new VerificationCondition(services, goals.get(i).sequent(), loopSpecs.getFirst(), Z3_SOLVER);
+            result[i] = new VerificationCondition(services, goals.get(i).sequent(), loopSpecs.getFirst(), CVC5_SOLVER);
         }
 
         return result;
@@ -136,7 +144,7 @@ public class EvolutionaryLoopInvariantGenerator {
         Set<LocationVariable> locationVariableSet = new HashSet<>();
 
         //Collect all program variables, as we need it for the fresh invariant
-        for (SequentFormula sf: sequent.asList()) {
+        for (SequentFormula sf : sequent.asList()) {
             TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
             sf.formula().execPostOrder(pvc);
             locationVariableSet.addAll(pvc.result());
@@ -144,7 +152,7 @@ public class EvolutionaryLoopInvariantGenerator {
 
         //TODO: Implement for other types than integer as well
         locationVariableSet = locationVariableSet.stream().filter((locVar) ->
-            locVar.sort() == services.getTypeConverter().getIntegerLDT().targetSort()
+                locVar.sort() == services.getTypeConverter().getIntegerLDT().targetSort()
         ).collect(Collectors.toSet());
 
         return locationVariableSet.toArray(new LocationVariable[0]);
@@ -153,7 +161,7 @@ public class EvolutionaryLoopInvariantGenerator {
     private Term[] collectAllTerms(Sequent sequent) {
         Set<Term> termSet = new HashSet<>();
 
-        for (SequentFormula sf: sequent.asList()) {
+        for (SequentFormula sf : sequent.asList()) {
             TermCollector termCollector = new TermCollector(services);
             sf.formula().execPostOrder(termCollector);
             termSet.addAll(termCollector.result());
@@ -165,7 +173,7 @@ public class EvolutionaryLoopInvariantGenerator {
     private Map<Sort, RandomAccessSet<Term>> collectTermSorts(Sequent sequent) {
         Map<Sort, RandomAccessSet<Term>> sortMap = new HashMap<>();
 
-        for (SequentFormula sf: sequent.asList()) {
+        for (SequentFormula sf : sequent.asList()) {
             TermSortCollector termSortCollector = new TermSortCollector(services);
             sf.formula().execPostOrder(termSortCollector);
             termSortCollector.result().forEach((key, value) -> {
@@ -179,11 +187,24 @@ public class EvolutionaryLoopInvariantGenerator {
         return sortMap;
     }
 
+    private Map<Sort, RandomAccessSet<Term>> collectTermSorts(VerificationCondition[] verificationConditions) {
+        Map<Sort, RandomAccessSet<Term>> sortMap = new HashMap<>();
+        for (VerificationCondition verificationCondition : verificationConditions) {
+            collectTermSorts(verificationCondition.getSequent()).forEach((key, value) -> {
+                if (!sortMap.containsKey(key)) {
+                    sortMap.put(key, new RandomAccessSet<>());
+                }
+                sortMap.get(key).addAll(value);
+            });
+        }
+        return sortMap;
+    }
+
     private Sequent createSideproofSequent(Sequent sequent, TermBuilder envTermBuilder, Sort[] predicateParameterSorts,
                                            JTerm[] predicateParameterTerms, List<LoopSpecification> loopSpecs) {
         Sequent sideSequent = JavaDLSequentKit.createAnteSequent(sequent.antecedent().asList());
 
-        for (SequentFormula sf: sequent.succedent()) {
+        for (SequentFormula sf : sequent.succedent()) {
             Term fml = sf.formula();
             SequentFormula sfToAdd = sf;
             //goBelowUpdates returns a pair of updates and what is below updates
@@ -212,12 +233,11 @@ public class EvolutionaryLoopInvariantGenerator {
                             uninterpretedInvariantFunction,
                             envTermBuilder.allLocs());
                     loopSpecs.add(loopSpec);
-                    sfToAdd = new SequentFormula(invariantFormula);
+//                    sfToAdd = new SequentFormula(invariantFormula);
                 }
 
             }
             sideSequent = sideSequent.addFormula(sfToAdd, false, true).sequent();
-
         }
 
         return sideSequent;

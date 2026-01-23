@@ -12,7 +12,6 @@ import org.key_project.util.collection.Pair;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 public class EvolutionEngine {
 
@@ -85,6 +84,14 @@ public class EvolutionEngine {
                 break;
             }
 
+            System.out.print("Current population scores: [");
+            for (var individual: population) {
+                System.out.print(individual.getFitness() + ", ");
+            }
+            System.out.println("]");
+
+            System.out.printf("Best solution: %s\n", population.get(0));
+
             //If generations is negative, the loop is infinite until a solution is found
             if (generations > 0) {
                 generations -= 1;
@@ -120,7 +127,7 @@ public class EvolutionEngine {
      * will be saved into {@code solution}.
      */
     private void evaluate() {
-        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(4);
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(parameters.getEvaluationThreads());
         for (LoopInvariantFreeGenome individual : population) {
             executor.submit(new EvaluationWorker(individual));
         }
@@ -264,10 +271,6 @@ public class EvolutionEngine {
     private void replace(List<LoopInvariantFreeGenome> mutatedChildren) {
         population.addAll(mutatedChildren);
         evaluate();
-
-//        for (LoopInvariantFreeGenome genome : population) {
-//            genome.checkFitness();
-//        }
 
         List<LoopInvariantFreeGenome> unshuffledPopulation = population;
         population = new ArrayList<>();

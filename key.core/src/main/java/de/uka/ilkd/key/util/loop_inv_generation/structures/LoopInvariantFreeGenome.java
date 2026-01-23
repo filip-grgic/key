@@ -24,6 +24,8 @@ public class LoopInvariantFreeGenome {
     private RandomAccessSet<Term> containingTerms;
     private boolean containingTermsRefreshed;
     private final VerificationCondition[] verificationConditions;
+    private Set<VerificationCondition> validVerificationConditions;
+    private Set<VerificationCondition> nonvalidVerificationConditions;
 
     public static LoopInvariantFreeGenomeComparator getComparator() {
         if (comparator == null) {
@@ -39,6 +41,8 @@ public class LoopInvariantFreeGenome {
 //        programVariableNameMap =  new HashMap<>();
         containingTermsRefreshed = true;
         changedSinceCalc = true;
+        validVerificationConditions = new HashSet<>();
+        nonvalidVerificationConditions = new HashSet<>();
     }
 
     public LoopInvariantFreeGenome(Services services) {
@@ -57,17 +61,16 @@ public class LoopInvariantFreeGenome {
         }
 
         //TODO: Try different Fitness strategies: e.g. weighted VCs depending on how many generations they have been fulfilled
-        fitness = 0;
         isSolution = true;
         for (VerificationCondition vc : verificationConditions) {
-            if (vc.checkFulfillment(this)) {
+            if (!vc.checkFulfillment(this)) {
                 fitness += 1;
-            } else {
                 isSolution = false;
+                nonvalidVerificationConditions.add(vc);
+            } else {
+                validVerificationConditions.add(vc);
             }
         }
-
-        fitness += 1;
 
         changedSinceCalc = false;
     }

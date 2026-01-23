@@ -14,6 +14,7 @@ public class EvolutionEngineParameters {
     private int generations = -1;
     private int populationSize = 10;
     private double replacementRate = 0.5;
+    private int evaluationThreads = 4;
     private final List<Mutation> mutations = new ArrayList<>();
     private final List<Integer> mutationProbabilities = new ArrayList<>();
     private Term[] termPool;
@@ -54,6 +55,14 @@ public class EvolutionEngineParameters {
         }
     }
 
+    public int getEvaluationThreads() {
+        return evaluationThreads;
+    }
+
+    public void setEvaluationThreads(int evaluationThreads) {
+        this.evaluationThreads = evaluationThreads;
+    }
+
     public List<Mutation> getMutations() {
         return mutations;
     }
@@ -81,8 +90,11 @@ public class EvolutionEngineParameters {
         mutations.add(new NegateDisjunctMutation());
         mutationProbabilities.add(mutationProbabilities.getLast() + 1);
 
+        mutations.add(new StrengthenWeakenMutation(services));
+        mutationProbabilities.add(mutationProbabilities.getLast() + 2);
+
         mutations.add(new ReplaceVariableMutation(termSortSet));
-        mutationProbabilities.add(mutationProbabilities.getLast() + 6);
+        mutationProbabilities.add(mutationProbabilities.getLast() + 12);
     }
 
     public void setTermPool(Term[] termPool) {
