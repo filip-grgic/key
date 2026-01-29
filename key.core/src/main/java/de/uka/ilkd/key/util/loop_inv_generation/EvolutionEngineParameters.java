@@ -1,7 +1,12 @@
 package de.uka.ilkd.key.util.loop_inv_generation;
 
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.util.loop_inv_generation.evaluation.AbstractEvaluationStrategy;
+import de.uka.ilkd.key.util.loop_inv_generation.evaluation.EvaluationStrategy;
 import de.uka.ilkd.key.util.loop_inv_generation.mutations.*;
+import de.uka.ilkd.key.util.loop_inv_generation.replacement.AbstractReplacementStrategy;
+import de.uka.ilkd.key.util.loop_inv_generation.replacement.GenerationalMixingReplacement;
+import de.uka.ilkd.key.util.loop_inv_generation.replacement.IReplacementStrategy;
 import de.uka.ilkd.key.util.loop_inv_generation.util.RandomAccessSet;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
@@ -17,6 +22,8 @@ public class EvolutionEngineParameters {
     private int evaluationThreads = 4;
     private final List<Mutation> mutations = new ArrayList<>();
     private final List<Integer> mutationProbabilities = new ArrayList<>();
+    private final AbstractEvaluationStrategy evaluationStrategy = new EvaluationStrategy(evaluationThreads);
+    private final AbstractReplacementStrategy replacementStrategy = new GenerationalMixingReplacement(populationSize, evaluationStrategy);
     private Term[] termPool;
 //    private final Set<LocationVariable> programVariableSet;
     protected final Map<Sort, RandomAccessSet<Term>> termSortSet;
@@ -43,6 +50,7 @@ public class EvolutionEngineParameters {
 
     public void setPopulationSize(int populationSize) {
         this.populationSize = populationSize;
+        this.replacementStrategy.setPopulationSize(populationSize);
     }
 
     public double getReplacementRate() {
@@ -61,6 +69,15 @@ public class EvolutionEngineParameters {
 
     public void setEvaluationThreads(int evaluationThreads) {
         this.evaluationThreads = evaluationThreads;
+        evaluationStrategy.setThreadPoolSize(evaluationThreads);
+    }
+
+    public AbstractEvaluationStrategy getEvaluationStrategy() {
+        return evaluationStrategy;
+    }
+
+    public AbstractReplacementStrategy getReplacementStrategy() {
+        return replacementStrategy;
     }
 
     public List<Mutation> getMutations() {

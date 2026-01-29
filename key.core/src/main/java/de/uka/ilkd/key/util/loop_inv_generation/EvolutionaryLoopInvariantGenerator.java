@@ -69,7 +69,7 @@ public class EvolutionaryLoopInvariantGenerator {
 
         EvolutionEngineParameters engineParameters = new EvolutionEngineParameters(sequentTerms, termSorts, services);
         engineParameters.setGenerations(40);
-        engineParameters.setPopulationSize(10);
+        engineParameters.setPopulationSize(40);
         engineParameters.setEvaluationThreads(1);
 
         EvolutionEngine engine = new EvolutionEngine(services, sequentTerms, verificationConditions, engineParameters);

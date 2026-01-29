@@ -2,6 +2,7 @@ package de.uka.ilkd.key.util.loop_inv_generation;
 
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.util.loop_inv_generation.mutations.Mutation;
+import de.uka.ilkd.key.util.loop_inv_generation.replacement.IReplacementStrategy;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGen;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.LoopInvariantFreeGenome;
 import de.uka.ilkd.key.util.loop_inv_generation.structures.VerificationCondition;
@@ -127,29 +128,10 @@ public class EvolutionEngine {
      * will be saved into {@code solution}.
      */
     private void evaluate() {
-        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(parameters.getEvaluationThreads());
-        for (LoopInvariantFreeGenome individual : population) {
-            executor.submit(new EvaluationWorker(individual));
-        }
+        parameters.getEvaluationStrategy().evaluate(population);
 
-        while (!executor.getQueue().isEmpty() || executor.getActiveCount() > 0) {
-//            System.out.printf("queue size: %s, active threads: %s\n", executor.getQueue().size(), executor.getActiveCount());
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                executor.shutdownNow();
-                throw new RuntimeException(e);
-            }
-        }
-
-        executor.close();
-
-        //Evaluation Phase: Check score of each individual in the population
-        for (LoopInvariantFreeGenome individual : population) {
-            if (individual.isSolution()) {
-                solution = individual;
-                break;
-            }
+        if (parameters.getEvaluationStrategy().hasSolution()) {
+            solution = parameters.getEvaluationStrategy().getSolution();
         }
 
         population.sort(LoopInvariantFreeGenome.getComparator());
@@ -269,34 +251,8 @@ public class EvolutionEngine {
      * @param mutatedChildren the final children after the mutation phase.
      */
     private void replace(List<LoopInvariantFreeGenome> mutatedChildren) {
-        population.addAll(mutatedChildren);
-        evaluate();
+        IReplacementStrategy replacementStrategy = parameters.getReplacementStrategy();
 
-        List<LoopInvariantFreeGenome> unshuffledPopulation = population;
-        population = new ArrayList<>();
-        Random random = new Random();
-
-        while (!unshuffledPopulation.isEmpty()) {
-            int index = random.nextInt(unshuffledPopulation.size());
-            population.add(unshuffledPopulation.get(index));
-            unshuffledPopulation.remove(index);
-        }
-
-        population.sort(LoopInvariantFreeGenome.getComparator());
-        population = population.subList(0, parameters.getPopulationSize());
-    }
-
-    private static class EvaluationWorker implements Runnable {
-
-        private final LoopInvariantFreeGenome genome;
-
-        EvaluationWorker(LoopInvariantFreeGenome genome) {
-            this.genome = genome;
-        }
-
-        @Override
-        public void run() {
-            genome.checkFitness();
-        }
+        population = replacementStrategy.replace(population, mutatedChildren);
     }
 }
