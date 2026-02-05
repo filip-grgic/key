@@ -13,52 +13,27 @@ import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
-import de.uka.ilkd.key.java.JavaTools;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.java.statement.LoopStatement;
-import de.uka.ilkd.key.java.statement.While;
 import de.uka.ilkd.key.ldt.HeapLDT;
 import de.uka.ilkd.key.ldt.JavaDLTheory;
 import de.uka.ilkd.key.logic.JTerm;
-import de.uka.ilkd.key.logic.JavaBlock;
 import de.uka.ilkd.key.logic.NamespaceSet;
-import de.uka.ilkd.key.logic.TermBuilder;
-import de.uka.ilkd.key.logic.op.JFunction;
-import de.uka.ilkd.key.logic.op.JModality;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.nparser.KeyIO;
-import de.uka.ilkd.key.parser.Location;
 import de.uka.ilkd.key.parser.ParserException;
 import de.uka.ilkd.key.pp.AbbrevMap;
 import de.uka.ilkd.key.pp.PrettyPrinter;
-import de.uka.ilkd.key.proof.Goal;
-import de.uka.ilkd.key.proof.Proof;
-import de.uka.ilkd.key.proof.TermProgramVariableCollector;
-import de.uka.ilkd.key.proof.calculus.JavaDLSequentKit;
-import de.uka.ilkd.key.proof.init.ProofInputException;
 import de.uka.ilkd.key.proof.io.OutputStreamProofSaver;
-import de.uka.ilkd.key.proof.io.ProofSaver;
-import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
 import de.uka.ilkd.key.rule.LoopInvariantBuiltInRuleApp;
-import de.uka.ilkd.key.speclang.BasicLoopSpecificationImpl;
-import de.uka.ilkd.key.speclang.LoopSpecImpl;
 import de.uka.ilkd.key.speclang.LoopSpecification;
-import de.uka.ilkd.key.strategy.JavaCardDLStrategyFactory;
-import de.uka.ilkd.key.strategy.StrategyProperties;
 import de.uka.ilkd.key.util.InfFlowSpec;
 
-import de.uka.ilkd.key.util.ProofStarter;
-import de.uka.ilkd.key.util.SideProofUtil;
-import de.uka.ilkd.key.util.loop_inv_generation.EvolutionaryLoopInvariantGenerator;
-import org.key_project.logic.Name;
+import de.uka.ilkd.key.util.loop_inv_generation.LoopInvariantGenerator;
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionaryLoopInvariantGenerator;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
-import org.key_project.prover.engine.ProofSearchInformation;
 import org.key_project.prover.rules.RuleAbortException;
-import org.key_project.prover.sequent.PosInOccurrence;
-import org.key_project.prover.sequent.Sequent;
-import org.key_project.prover.sequent.SequentFormula;
-import org.key_project.prover.sequent.SequentKit;
 import org.key_project.util.collection.ImmutableList;
 import org.key_project.util.collection.ImmutableSLList;
 
@@ -157,7 +132,9 @@ public class InvariantConfigurator {
             private final Map<LocationVariable, JTerm> invariantTerm = new LinkedHashMap<>();
             private final Map<LocationVariable, JTerm> freeInvariantTerm = new LinkedHashMap<>();
 
+            private final List<JTextArea> invariantTextAreas = new ArrayList<>();
 
+            private final JTextArea generateErrorText = createErrorTextField("", "", COLOR_ERROR);
             private final JButton generateButton = new JButton("Generate");
             private final JButton applyButton = new JButton("Apply");
             private final JButton cancelButton = new JButton("Cancel");
@@ -238,6 +215,8 @@ public class InvariantConfigurator {
                 cancelButton.addActionListener(this::cancelActionPerformed);
                 storeButton.addActionListener(this::storeActionPerformed);
 
+
+                buttonPanel.add(generateErrorText);
                 buttonPanel.add(generateButton);
                 buttonPanel.add(applyButton);
                 buttonPanel.add(storeButton);
@@ -257,7 +236,7 @@ public class InvariantConfigurator {
                 inputPane.addChangeListener(e -> {
                     index = ((JTabbedPane) e.getSource()).getSelectedIndex();
                     parse();
-
+                    generateErrorText.setText("");
                 });
             }
 
@@ -407,6 +386,7 @@ public class InvariantConfigurator {
                     String title = format(INVARIANTTITLE,
                             k.equals(HeapLDT.BASE_HEAP_NAME.toString()) ? "" : "[" + k + "]");
                     JTextArea textArea = createInputTextArea(title, invs.get(k));
+                    invariantTextAreas.add(textArea);
                     setInvariantListener(textArea, k, i);
                     invPane.add(k, textArea);
                 }
@@ -610,8 +590,21 @@ public class InvariantConfigurator {
             public void generateActionPerformed(ActionEvent e) {
                 //TODO: Add functionality to generate invariant
 
-                EvolutionaryLoopInvariantGenerator generator = new EvolutionaryLoopInvariantGenerator(services);
-                generator.generateLoopInvariant();
+                generateErrorText.setText("");
+
+                LoopInvariantGenerator generator = new EvolutionaryLoopInvariantGenerator(services);
+                Term generatedInvariant = generator.generateLoopInvariant();
+
+                if (generatedInvariant == null) {
+                    generateErrorText.setText("Could not generate an invariant");
+                    return;
+                }
+
+                for (JTextArea textArea : invariantTextAreas) {
+                    textArea.setText(printTerm((JTerm) generatedInvariant, true));
+                }
+
+                parse();
             }
 
             private JPanel createErrorPanel(Map<String, String> invMsgs,

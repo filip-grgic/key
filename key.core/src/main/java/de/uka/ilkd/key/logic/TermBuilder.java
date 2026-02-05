@@ -2204,7 +2204,7 @@ public class TermBuilder {
     }
 
     public Term replaceContainingTerm(Term term, Term oldTerm, Term newTerm) {
-        if (term.equals(oldTerm)) {
+        if (term.equals(oldTerm) || (term.subs().isEmpty() && term.op().name().equals(oldTerm.op().name()))) {
             return services.getTermFactory().createTerm((JTerm) newTerm);
         }
 
