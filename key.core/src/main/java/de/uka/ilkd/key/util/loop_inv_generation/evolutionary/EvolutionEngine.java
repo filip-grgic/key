@@ -25,11 +25,10 @@ public class EvolutionEngine {
     private List<LoopInvariantFreeGenome> population;
     private LoopInvariantFreeGenome solution;
 
-    public EvolutionEngine(Services services, Term[] termPool, VerificationCondition[] verificationConditions,
-                           EvolutionEngineParameters parameters) {
+    public EvolutionEngine(Services services, Term[] termPool, EvolutionEngineParameters parameters) {
         this.services = services;
         this.termPool = termPool;
-        this.verificationConditions = verificationConditions;
+        this.verificationConditions = parameters.getVerificationConditions();
         this.parameters = parameters;
         parameters.setTermPool(termPool);
 
@@ -108,65 +107,30 @@ public class EvolutionEngine {
      */
     private void init() {
         Random random = new Random();
+        Mutation replaceReturnValueMutation = parameters.getReplaceReturnValueMutation();
 
-        Sort intSort = services.getTypeConverter().getIntegerLDT().targetSort();
-        var integerLDT = services.getTypeConverter().getIntegerLDT();
-
-        var intTerms = parameters.getTermSortSet().get(intSort);
-        Term indexTerm = null;
-        Term bTerm = null;
-        Term aTerm = null;
-        Term cTerm = null;
-
-        for (Term intTerm : intTerms) {
-            String name = intTerm.op().name().toString();
-            if (name.startsWith("index")) {
-                indexTerm = intTerm;
-            } else if (name.equals("a")) {
-                aTerm = intTerm;
-            } else if (name.equals("b")) {
-                bTerm = intTerm;
-            } else if (name.equals("c")) {
-                cTerm = intTerm;
-            }
-        }
-
-        TermBuilder tb = services.getTermBuilder();
-//        @ loop_invariant index <= b;
-//        @ loop_invariant c <= a*index && !(c < a*index);
-        LoopInvariantFreeGen conjunct1 = new LoopInvariantFreeGen(
-                services,
-                tb.leq((JTerm) indexTerm, (JTerm) bTerm)
-        );
-        LoopInvariantFreeGen conjunct2 = new LoopInvariantFreeGen(
-                services,
-                tb.leq((JTerm) cTerm, tb.func(integerLDT.getMul(), (JTerm) aTerm, (JTerm) indexTerm))
-        );
-        LoopInvariantFreeGen conjunct3 = new LoopInvariantFreeGen(
-                services,
-                tb.not(tb.lt((JTerm) cTerm, tb.func(integerLDT.getMul(), (JTerm) aTerm, (JTerm) indexTerm)))
-        );
-
-        LoopInvariantFreeGenome candidate = new LoopInvariantFreeGenome(services, verificationConditions);
-        candidate.addConjunct(conjunct1);
-        candidate.addConjunct(conjunct2);
-        candidate.addConjunct(conjunct3);
-
-        population.add(candidate);
-
-        while (population.size() < this.parameters.getPopulationSize()) {
+        while (population.size() < this.parameters.getPopulationSize() * 0.5) {
             int randomTermIndex = random.nextInt(termPool.length);
             LoopInvariantFreeGen gen = new LoopInvariantFreeGen(services, termPool[randomTermIndex]);
 
-            RandomAccessSet<LoopInvariantFreeGen> conjunct = new RandomAccessSet<>();
-            conjunct.add(gen);
-
             LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services, verificationConditions);
-            genome.addConjunct(conjunct);
+            genome.addConjunct(gen);
+
+            if (replaceReturnValueMutation.suitableForMutation(genome)) {
+                replaceReturnValueMutation.mutate(genome);
+            }
+
+            population.add(genome);
+        }
+
+        while (population.size() < this.parameters.getPopulationSize()) {
+            LoopInvariantFreeGenome genome = LoopInvariantFreeGenome.generateRandomGenome(parameters, services);
 
             population.add(genome);
         }
     }
+
+
 
     /**
      * The fitness score of each genome in the population is updated and sorted according to their current fitness
@@ -260,7 +224,11 @@ public class EvolutionEngine {
             List<Integer> possibleMutationsProbabilities = new ArrayList<>(probabilities);
             Mutation mutation = null;
 
-            while (!possibleMutations.isEmpty()) {
+            if (parameters.getReplaceReturnValueMutation().suitableForMutation(child)) {
+                mutation = parameters.getReplaceReturnValueMutation();
+            }
+
+            while (!possibleMutations.isEmpty() && mutation != null) {
                 int index = Collections.binarySearch(possibleMutationsProbabilities, random.nextInt(possibleMutationsProbabilities.getLast()));
                 if (index < 0) {
                     index = -index - 1;

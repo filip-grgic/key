@@ -8,7 +8,11 @@ import de.uka.ilkd.key.logic.TermFactory;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.TermSortCollector;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import org.key_project.logic.Term;
+import org.key_project.logic.op.Function;
 import org.key_project.logic.sort.Sort;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class LoopInvariantFreeGen extends LoopInvariantGen {
 
@@ -33,8 +37,10 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         }
 
         // Check whether the operator is < or <= as per normalisation
-        if (!(nonNegatedTerm.op().equals(integerLDT.getLessThan()) || nonNegatedTerm.op().equals(integerLDT.getLessOrEquals()))) {
-            throw new IllegalArgumentException(String.format("The operator in the non-negated term must be either \"less/greater than\" or \"less/greater or equals\", but is %s: %s ",
+        if (!(nonNegatedTerm.op().equals(integerLDT.getLessThan()) || nonNegatedTerm.op().equals(integerLDT.getLessOrEquals()) ||
+                nonNegatedTerm.op().equals(integerLDT.getGreaterThan()) ||  nonNegatedTerm.op().equals(integerLDT.getGreaterOrEquals()) ||
+                nonNegatedTerm.op().name().toString().contains("equals"))) {
+            throw new IllegalArgumentException(String.format("The operator in the non-negated term must be either \"less/greater than\", \"less/greater or equals\" or \"equals\", but is %s: %s ",
                     nonNegatedTerm.op(), nonNegatedTerm));
         }
 
@@ -128,7 +134,7 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
     private void collectAllTerms() {
         //Collect all integer terms
         containingTerms = new RandomAccessSet<>();
-        TermSortCollector tsc = new TermSortCollector(services, false);
+        TermSortCollector tsc = new TermSortCollector(services, false, false);
         term.execPostOrder(tsc);
         for (Sort sort : tsc.result().keySet()) {
             containingTerms.addAll(tsc.result().get(sort));

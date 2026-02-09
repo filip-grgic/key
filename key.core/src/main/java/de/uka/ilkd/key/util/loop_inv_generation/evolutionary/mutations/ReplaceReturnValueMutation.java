@@ -7,14 +7,14 @@ import org.key_project.logic.sort.Sort;
 
 import java.util.Map;
 
-public class ReplaceVariableMutation extends Mutation {
-    public ReplaceVariableMutation(Map<Sort, RandomAccessSet<Term>> termSortSet) {
-        super(null, null, termSortSet);
+public class ReplaceReturnValueMutation extends ReplaceVariableMutation {
+    public ReplaceReturnValueMutation(Map<Sort, RandomAccessSet<Term>> termSortSet) {
+        super(termSortSet);
     }
 
     @Override
     public void mutate(LoopInvariantFreeGenome genome) {
-        Term genomeTerm = genome.getContainingTerms().getRandomElement();
+        Term genomeTerm = genome.getReturnValue();
         RandomAccessSet<Term> sortedPool = termSortSet.get(genomeTerm.sort());
 
         Term globalTerm = genomeTerm;
@@ -28,6 +28,6 @@ public class ReplaceVariableMutation extends Mutation {
 
     @Override
     public boolean suitableForMutation(LoopInvariantFreeGenome genome) {
-        return genome.size() > 0;
+        return genome.size() > 0 && genome.containsReturnValue();
     }
 }

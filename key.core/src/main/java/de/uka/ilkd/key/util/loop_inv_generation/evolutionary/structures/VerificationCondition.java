@@ -78,11 +78,6 @@ public class VerificationCondition {
         Sequent resultingSequent = sequent.addFormula(new SequentFormula(preparedCandidate), true, true)
                 .sequent();
 
-//        ImmutableList<SequentFormula> insertedAntecedent = insertInvariant(genome.translateToTerm(), sequent.antecedent());
-//        ImmutableList<SequentFormula> insertedSuccedent = insertInvariant(genome.translateToTerm(), sequent.succedent());
-//
-//        Sequent resultingSequent = JavaDLSequentKit.createSequent(insertedAntecedent, insertedSuccedent);
-
         SMTProblem smtProblem = new SMTProblem(resultingSequent, services);
 
         SolverLauncher launcher = getSolverLauncher();
@@ -91,101 +86,29 @@ public class VerificationCondition {
         return smtProblem.getFinalResult().isValid() == SMTSolverResult.ThreeValuedTruth.VALID;
     }
 
-    private Sequent prepareSequent(Sequent sequent) {
-        ImmutableList<SequentFormula> newAntecedent = removeForbiddenFromSemiSequent(sequent.antecedent());
-        ImmutableList<SequentFormula> newSuccedent = removeForbiddenFromSemiSequent(sequent.succedent());
-
-        return JavaDLSequentKit.createSequent(newAntecedent, newSuccedent);
-    }
-
-    private ImmutableList<SequentFormula> removeForbiddenFromSemiSequent(Semisequent semisequent) {
-        List<SequentFormula> newSemisequent = new ArrayList<>();
-
-        for (SequentFormula sequentFormula : semisequent.asList()) {
-            if (formulaContainsForbidden(sequentFormula.formula())) {
-                continue;
-            }
-
-            newSemisequent.add(sequentFormula);
-        }
-
-        return ImmutableList.of(newSemisequent.toArray(new SequentFormula[0]));
-    }
-
-    private boolean formulaContainsForbidden(Term term) {
-
-        if (term.op().name().toString().equals("measuredByEmpty")) {
-            return true;
-        } else if (term.sort().equals(services.getTypeConverter().getHeapLDT().targetSort())) {
-            return true;
-        } else if (term.op().name().toString().equals("self")) {
-            return true;
-        } else if (term.sort().name().toString().equals("Field")) {
-            return true;
-        } else if (term.sort().name().toString().equals("java.lang.Object")) {
-            return true;
-        }
-
-        for (Term sub : term.subs()) {
-            if (formulaContainsForbidden(sub)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private ImmutableList<SequentFormula> insertInvariant(Term candidate, Semisequent semisequent) {
-        List<SequentFormula> insertedSemisequent = new ArrayList<>();
-        TermBuilder termBuilder = services.getTermBuilder();
-
-        for (SequentFormula sequentFormula : semisequent.asList()) {
-            if (!sequentFormula.formula().op().name().toString().equals(function.op().name().toString())) {
-                insertedSemisequent.add(sequentFormula);
-                continue;
-            }
-
-            Term freshInv = sequentFormula.formula();
-            Term resultingSequentFormula = candidate;
-
-            for (int i = 0; i < freshInv.subs().size(); i++) {
-                resultingSequentFormula = termBuilder.replaceContainingTerm(resultingSequentFormula, function.sub(i), freshInv.sub(i));
-            }
-
-            insertedSemisequent.add(new SequentFormula(resultingSequentFormula));
-
-        }
-
-        return ImmutableList.of(insertedSemisequent.toArray(new SequentFormula[0]));
-    }
-
     private boolean checkForTriviality(Term preparedCandidate) {
         SolverLauncher launcher = getSolverLauncher();
         TermBuilder termBuilder = services.getTermBuilder();
-//        ImmutableList<SequentFormula> trueAnte = ImmutableList.of(new SequentFormula(termBuilder.tt()));
 
-        ImmutableList<SequentFormula> trueTrivialSucc = ImmutableList.of(new SequentFormula(preparedCandidate));
-        Sequent sequent = JavaDLSequentKit.createAnteSequent(trueTrivialSucc);
+        ImmutableList<SequentFormula> falseTrivialAnte = ImmutableList.of(new SequentFormula(preparedCandidate));
+        Sequent sequent = JavaDLSequentKit.createAnteSequent(falseTrivialAnte);
+
+        SMTProblem checkForFalse = new SMTProblem(sequent, services);
+        launcher.launch(checkForFalse, services, smtSolver);
+        boolean triviallyFalse = checkForFalse.getFinalResult().isValid() == SMTSolverResult.ThreeValuedTruth.VALID;
+
+        if (triviallyFalse) {
+            return true;
+        }
+
+        Term negatedCandidate = termBuilder.not((JTerm) preparedCandidate);
+        ImmutableList<SequentFormula> trueTrivialAnte = ImmutableList.of(new SequentFormula(negatedCandidate));
+        sequent = JavaDLSequentKit.createAnteSequent(trueTrivialAnte);
 
         SMTProblem checkForTrue = new SMTProblem(sequent, services);
-        launcher.launch(checkForTrue, services, smtSolver);
-        boolean triviallyTrue = checkForTrue.getFinalResult().isValid() == SMTSolverResult.ThreeValuedTruth.VALID;
+        getSolverLauncher().launch(checkForTrue, services, smtSolver);
 
-        return triviallyTrue;
-
-//        if (triviallyTrue) {
-//            return true;
-//        }
-//
-//        launcher = getSolverLauncher();
-//
-//        ImmutableList<SequentFormula> falseTrivialSucc = ImmutableList.of(new SequentFormula(termBuilder.not((JTerm) preparedCandidate)));
-//        sequent = JavaDLSequentKit.createSequent(trueAnte, falseTrivialSucc);
-//
-//        SMTProblem checkForFalse = new SMTProblem(sequent, services);
-//        launcher.launch(checkForFalse, services, SMTSolver);
-//
-//        return checkForFalse.getFinalResult().isValid() == SMTSolverResult.ThreeValuedTruth.VALID;
+        return checkForTrue.getFinalResult().isValid() == SMTSolverResult.ThreeValuedTruth.VALID;
     }
 
     private boolean checkForReturnValue(LoopInvariantFreeGenome genome) {

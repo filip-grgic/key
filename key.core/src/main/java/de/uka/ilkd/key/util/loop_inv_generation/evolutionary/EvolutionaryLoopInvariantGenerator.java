@@ -67,12 +67,12 @@ public class EvolutionaryLoopInvariantGenerator implements LoopInvariantGenerato
 
         var termSorts = collectTermSorts(verificationConditions);
 
-        EvolutionEngineParameters engineParameters = new EvolutionEngineParameters(sequentTerms, termSorts, services);
+        EvolutionEngineParameters engineParameters = new EvolutionEngineParameters(sequentTerms, termSorts, services, verificationConditions);
         engineParameters.setGenerations(40);
-        engineParameters.setPopulationSize(5);
-        engineParameters.setEvaluationThreads(1);
+        engineParameters.setPopulationSize(20);
+        engineParameters.setEvaluationThreads(5);
 
-        EvolutionEngine engine = new EvolutionEngine(services, sequentTerms, verificationConditions, engineParameters);
+        EvolutionEngine engine = new EvolutionEngine(services, sequentTerms, engineParameters);
         engine.launch();
 
         if (engine.hasSolution()) {
@@ -176,7 +176,7 @@ public class EvolutionaryLoopInvariantGenerator implements LoopInvariantGenerato
         Set<Term> termSet = new HashSet<>();
 
         for (SequentFormula sf : sequent.asList()) {
-            TermCollector termCollector = new TermCollector(services);
+            EnsuresTermCollector termCollector = new EnsuresTermCollector(services);
             sf.formula().execPostOrder(termCollector);
             termSet.addAll(termCollector.result());
         }

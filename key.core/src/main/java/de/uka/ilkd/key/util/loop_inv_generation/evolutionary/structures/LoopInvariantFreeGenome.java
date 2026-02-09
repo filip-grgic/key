@@ -3,9 +3,11 @@ package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionEngineParameters;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.LoopInvariantFreeGenomeComparator;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import org.key_project.logic.Term;
+import org.key_project.logic.sort.Sort;
 
 import java.util.*;
 
@@ -24,6 +26,7 @@ public class LoopInvariantFreeGenome {
     private final VerificationCondition[] verificationConditions;
     private Set<VerificationCondition> validVerificationConditions;
     private Set<VerificationCondition> nonvalidVerificationConditions;
+    private Term returnValue = null;
 
     public static LoopInvariantFreeGenomeComparator getComparator() {
         if (comparator == null) {
@@ -151,19 +154,6 @@ public class LoopInvariantFreeGenome {
         return conjuncts;
     }
 
-//    /**
-//     * Return the amount of disjuncts in the conjunct at the specified index.
-//     * @param index of the conjunct in the genome
-//     * @return the amount of disjuncts in the conjunct at the specified index
-//     */
-//    public int getConjunctSize(int index) {
-//        if (index >= 0 && index < conjuncts.size()) {
-//            return conjuncts.get(index).size();
-//        }
-//
-//        return 0;
-//    }
-
     public RandomAccessSet<LoopInvariantFreeGen> getRandomConjunct() {
         return conjuncts.getRandomElement();
     }
@@ -199,19 +189,6 @@ public class LoopInvariantFreeGenome {
         conjuncts.removeRandomElement();
     }
 
-//    /**
-//     * Removes the conjunct at the provided index.
-//     * @param index of the conjunct that should be removed.
-//     */
-//    public void removeConjunct(int index) {
-//        if (index >= 0 && index < conjuncts.size()) {
-//            conjuncts.remove(index);
-//            changedSinceCalc = true;
-//            containingTermsRefreshed = false;
-//        }
-//
-//    }
-
     /**
      * Flips the polarity of the conjunct at the provided index. Since the conjunct is a disjunction, the individual
      * disjuncts are negated and added as conjuncts into the genome, whereas the original conjunct is removed.
@@ -228,74 +205,42 @@ public class LoopInvariantFreeGenome {
 
     }
 
-//    /**
-//     * Add the provided disjunct into the disjunction under the conjunct at the provided index.
-//     * @param disjunct that should be added
-//     * @param index of the position of the new disjunct
-//     */
-//    public void addDisjunct(LoopInvariantFreeGen disjunct, int index) {
-//        if (index >= 0 && index < conjuncts.size()) {
-//            List<LoopInvariantFreeGen> conjunct = conjuncts.get(index);
-//            conjunct.add(new LoopInvariantFreeGen(disjunct));
-//            changedSinceCalc = true;
-//            containingTermsRefreshed = false;
-//        }
-//
-//    }
+    static public LoopInvariantFreeGenome generateRandomGenome(EvolutionEngineParameters parameters,
+                                                               Services services) {
+        Map<Sort, RandomAccessSet<Term>> termSorts = parameters.getTermSortSet();
+        RandomAccessSet<Term> integerTerms = termSorts.get(services.getTypeConverter().getIntegerLDT().targetSort());
 
-//    /**
-//     * Removes the disjunct at the provided indices.
-//     * @param conjunctIndex the index of the conjunct
-//     * @param disjunctIndex the index of the disjunct in the specified conjunct
-//     */
-//    public void removeDisjunct(int conjunctIndex, int disjunctIndex) {
-//        if (conjunctIndex >= 0 && conjunctIndex < conjuncts.size() &&
-//                disjunctIndex >= 0 && disjunctIndex < conjuncts.get(conjunctIndex).size()) {
-//
-//            if (getConjunctSize(conjunctIndex) == 1) {
-//                removeConjunct(conjunctIndex);
-//            } else {
-//                conjuncts.get(conjunctIndex).remove(disjunctIndex);
-//            }
-//            changedSinceCalc = true;
-//            containingTermsRefreshed = false;
-//        }
-//    }
+        Random random = new Random();
 
-//    /**
-//     * Flips the polarity of the disjunct under the provided indices.
-//     * @param conjunctIndex the index of the conjunct
-//     * @param disjunctIndex the index of the disjunct in the specified conjunct
-//     */
-//    public void negateDisjunct(int conjunctIndex, int disjunctIndex) {
-//        if (conjunctIndex >= 0 && conjunctIndex < conjuncts.size() &&
-//                disjunctIndex >= 0 && disjunctIndex < conjuncts.get(conjunctIndex).size()) {
-//            conjuncts.get(conjunctIndex).get(disjunctIndex).negate();
-//            changedSinceCalc = true;
-//        }
-//    }
+        TermBuilder termBuilder = services.getTermBuilder();
+        Term left = integerTerms.getRandomElement();
+        Term right = integerTerms.getRandomElement();
 
-//    /**
-//     * Checks whether the genome contains the program variable {@code programVariable} in any of the disjuncts.
-//     * @param programVariable that is being searched for
-//     * @return true if the genome contains the provided variable, otherwise false
-//     */
-//    public boolean containsProgramVariable(LocationVariable programVariable) {
-//        refreshProgramVariableNameMap();
-//
-//        if (programVariable == null) {
-//            return false;
-//        }
-//        for (List<LoopInvariantFreeGen> conjunct : conjuncts) {
-//            for (LoopInvariantFreeGen disjunct : conjunct) {
-//                if (disjunct.containsProgramVariable(programVariable)) {
-//                    return true;
-//                }
-//            }
-//        }
-//
-//        return false;
-//    }
+        Term randomTerm = switch (random.nextInt(5)) {
+            case 0 -> termBuilder.lt((JTerm) left, (JTerm) right);
+            case 1 -> termBuilder.leq((JTerm) left, (JTerm) right);
+            case 2 -> termBuilder.gt((JTerm) left, (JTerm) right);
+            case 3 -> termBuilder.geq((JTerm) left, (JTerm) right);
+            case 4 -> termBuilder.equals((JTerm) left, (JTerm) right);
+            default -> null;
+        };
+
+        assert randomTerm != null;
+
+        LoopInvariantFreeGen gen = new LoopInvariantFreeGen(services, randomTerm);
+        LoopInvariantFreeGenome genome = new  LoopInvariantFreeGenome(services, parameters.getVerificationConditions());
+        genome.addConjunct(gen);
+        return genome;
+    }
+
+    public boolean containsReturnValue() {
+        refreshContainingTerms();
+        return returnValue != null;
+    }
+
+    public Term getReturnValue() {
+        return returnValue;
+    }
 
     public boolean containsTerm(Term term) {
         refreshContainingTerms();
@@ -315,23 +260,6 @@ public class LoopInvariantFreeGenome {
         return false;
     }
 
-//    /**
-//     * Replaces any occurrence of a variable with the name {@code oldVariable} by the variable {@code newVariable}.
-//     * @param oldVariableName the name of the variable that should be replaced
-//     * @param oldVariableSort the sort of the variable that should be replaced
-//     * @param newVariable the variable that replaces the specified old variable
-//     */
-//    public void replaceVariable(Name oldVariableName, Sort oldVariableSort, JAbstractSortedOperator newVariable) {
-//        for (List<LoopInvariantFreeGen> conjunct: conjuncts) {
-//            for (LoopInvariantFreeGen disjunct: conjunct) {
-//                disjunct.replaceVariable(oldVariableName, oldVariableSort, newVariable);
-//            }
-//        }
-//
-//        nameMapRefreshed = false;
-//        changedSinceCalc = true;
-//    }
-
     public void replaceTerm(Term oldTerm, Term newTerm) {
         for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts) {
             for (LoopInvariantFreeGen disjunct : conjunct) {
@@ -339,38 +267,22 @@ public class LoopInvariantFreeGenome {
             }
         }
 
+        if (oldTerm.op().name().equals(returnValue.op().name())) {
+            if (newTerm.op().name().toString().startsWith("result_")) {
+                returnValue = newTerm;
+            } else {
+                returnValue = null;
+            }
+        }
+
         containingTermsRefreshed = false;
         changedSinceCalc = true;
     }
-
-//    public Map<Name, Sort> getProgramVariableNameMap() {
-//        refreshProgramVariableNameMap();
-//        return programVariableNameMap;
-//    }
 
     public RandomAccessSet<Term> getContainingTerms() {
         refreshContainingTerms();
         return containingTerms;
     }
-
-
-//    /**
-//     * Queries all its contained disjuncts for their program variable name sets and sets the genome program variable
-//     * name set to the union of all the queried sets.
-//     */
-//    private void refreshProgramVariableNameMap() {
-//        if (nameMapRefreshed) {
-//            return;
-//        }
-//
-//        programVariableNameMap = new HashMap<>();
-//        for (List<LoopInvariantFreeGen> conjunct : conjuncts) {
-//            for (LoopInvariantFreeGen disjunct : conjunct) {
-//                programVariableNameMap.putAll(disjunct.getProgramVariableNameMap());
-//            }
-//        }
-//        nameMapRefreshed = true;
-//    }
 
     private void refreshContainingTerms() {
         if (containingTermsRefreshed) {
@@ -382,6 +294,16 @@ public class LoopInvariantFreeGenome {
         for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts) {
             for (LoopInvariantFreeGen disjunct : conjunct) {
                 containingTerms.addAll(disjunct.getContainingTerms());
+
+                if (returnValue == null) {
+                    for (Term containingTerm : disjunct.getContainingTerms()) {
+                        if (containingTerm.op().name().toString().startsWith("result_")) {
+                            returnValue = containingTerm;
+                            break;
+                        }
+                    }
+                }
+
             }
         }
         containingTermsRefreshed = true;

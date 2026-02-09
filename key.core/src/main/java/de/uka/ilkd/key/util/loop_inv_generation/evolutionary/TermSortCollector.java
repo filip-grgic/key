@@ -16,16 +16,18 @@ public class TermSortCollector implements DefaultVisitor {
     private final Services services;
     private final List<Sort> allowedSorts;
     private final boolean excludeReturnValue;
+    private final boolean excludeConstants;
 
     public TermSortCollector(Services services) {
-        this(services, true);
+        this(services, true, true);
     }
 
-    public TermSortCollector(Services services, boolean excludeReturnValue) {
+    public TermSortCollector(Services services, boolean excludeReturnValue, boolean excludeConstants) {
         this.result = new LinkedHashMap<>();
         this.services = services;
         this.allowedSorts = new ArrayList<>();
         this.excludeReturnValue = excludeReturnValue;
+        this.excludeConstants = excludeConstants;
 
         allowedSorts.add(services.getTypeConverter().getIntegerLDT().targetSort());
     }
@@ -39,6 +41,8 @@ public class TermSortCollector implements DefaultVisitor {
         if (visited.op() instanceof AbstractOperator) {
             AbstractOperator op = (AbstractOperator) visited.op();
             if (excludeReturnValue && op.name().toString().startsWith("result_")) {
+                return;
+            } else if (excludeConstants && op.name().toString().equals("Z")) {
                 return;
             }
         }
