@@ -1,6 +1,7 @@
 package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.mutations;
 
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionEngineParameters;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGen;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGenome;
 import org.key_project.logic.Term;
@@ -10,8 +11,11 @@ import java.util.Random;
 
 public class AddConjunctMutation extends Mutation {
 
-    public AddConjunctMutation(Services services, Term[] termPool) {
-        super(services, termPool, null);
+    private final Term[] termPool;
+
+    public AddConjunctMutation(EvolutionEngineParameters parameters) {
+        super(parameters);
+        this.termPool = parameters.getTermPool();
     }
 
     @Override

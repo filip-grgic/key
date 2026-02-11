@@ -55,13 +55,6 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
             throw new IllegalArgumentException(String.format("The right side is not an integer: %s", right));
         }
 
-//        // Collect all program variables
-//        TermProgramVariableCollector pvc = new TermProgramVariableCollector(services);
-//        nonNegatedTerm.execPostOrder(pvc);
-//        pvc.result().forEach((variable) -> {
-//                programVariableNameMap.put(variable.name(), variable.sort());
-//        });
-
         this.term = nonNegatedTerm;
 
         collectAllTerms();
@@ -97,39 +90,6 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
 
         return result;
     }
-
-//    /**
-//     * Replace all occurrences of oldVariable with newVariable in the term.
-//     * @param oldVariable the variable that should be replaced
-//     * @param newVariable the variable that should replace oldVariable
-//     */
-//    @Override
-//    public void replaceVariable(LocationVariable oldVariable, AbstractSortedOperator newVariable) {
-//        if (oldVariable == null) {
-//            return;
-//        }
-//
-//        replaceVariable(oldVariable.name(), oldVariable.sort(), newVariable);
-//    }
-
-//    @Override
-//    public void replaceVariable(Name oldVariableName, Sort oldVariableSort, AbstractSortedOperator newVariable) {
-//        if (!containsProgramVariable(oldVariableName) || oldVariableName == null || newVariable == null) {
-//            return;
-//        }
-//
-//        if (oldVariableSort != newVariable.sort()) {
-//            throw new IllegalArgumentException("The old variable and the new variable don't share the same sort.\n" +
-//                    "Old variable sort: " + oldVariableSort + "\n" +
-//                    "New variable sort: " + newVariable.sort());
-//        }
-//
-//        term = services.getTermBuilder().replaceVariable(term, oldVariableName, newVariable);
-//
-//        programVariableNameMap.remove(oldVariableName);
-//        programVariableNameMap.put(newVariable.name(), oldVariableSort);
-
-//    }
 
     private void collectAllTerms() {
         //Collect all integer terms

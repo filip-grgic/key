@@ -1,10 +1,11 @@
 package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.mutations;
 
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionEngineParameters;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGenome;
 
 public class DeleteConjunctMutation extends Mutation{
-    public DeleteConjunctMutation() {
-        super(null, null, null);
+    public DeleteConjunctMutation(EvolutionEngineParameters parameters) {
+        super(parameters);
     }
 
     @Override

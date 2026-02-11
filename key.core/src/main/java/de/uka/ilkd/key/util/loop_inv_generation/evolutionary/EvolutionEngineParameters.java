@@ -1,6 +1,7 @@
 package de.uka.ilkd.key.util.loop_inv_generation.evolutionary;
 
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.evaluation.AbstractEvaluationStrategy;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.evaluation.EvaluationStrategy;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.mutations.*;
@@ -28,21 +29,26 @@ public class EvolutionEngineParameters {
 //    private final AbstractReplacementStrategy replacementStrategy = new GenerationalMixingReplacement(populationSize, evaluationStrategy);
     private final AbstractReplacementStrategy replacementStrategy;
     private Term[] termPool;
-//    private final Set<LocationVariable> programVariableSet;
+    private RandomAccessSet<LocationVariable> allVariables;
+    private RandomAccessSet<LocationVariable> changingVariables;
     protected final Map<Sort, RandomAccessSet<Term>> termSortSet;
     private final Services services;
 
     public EvolutionEngineParameters(Term[] termPool,
+                                     RandomAccessSet<LocationVariable> allVariables,
+                                     RandomAccessSet<LocationVariable> changingVariables,
                                      Map<Sort, RandomAccessSet<Term>> termSortSet,
                                      Services services,
                                      VerificationCondition[] verificationConditions) {
         this.termPool = termPool;
+        this.allVariables = allVariables;
+        this.changingVariables = changingVariables;
         this.termSortSet = termSortSet;
         this.services = services;
         this.verificationConditions = verificationConditions;
         this.evaluationStrategy = new EvaluationStrategy(evaluationThreads);
-        this.replacementStrategy = new MixingWithImmigrationReplacement(0.6, 0.2, this, services, evaluationStrategy);
-        this.replaceReturnValueMutation = new ReplaceReturnValueMutation(termSortSet);
+        this.replacementStrategy = new MixingWithImmigrationReplacement(0.3, 0.3, this, services, evaluationStrategy);
+        this.replaceReturnValueMutation = new ReplaceReturnValueMutation(this);
         addMutations();
     }
 
@@ -77,6 +83,14 @@ public class EvolutionEngineParameters {
         }
     }
 
+    public Term[] getTermPool() {
+        return termPool;
+    }
+
+    public Services getServices() {
+        return services;
+    }
+
     public int getEvaluationThreads() {
         return evaluationThreads;
     }
@@ -84,6 +98,14 @@ public class EvolutionEngineParameters {
     public void setEvaluationThreads(int evaluationThreads) {
         this.evaluationThreads = evaluationThreads;
         evaluationStrategy.setThreadPoolSize(evaluationThreads);
+    }
+
+    public RandomAccessSet<LocationVariable> getAllVariables() {
+        return allVariables;
+    }
+
+    public RandomAccessSet<LocationVariable> getChangingVariables() {
+        return changingVariables;
     }
 
     public AbstractEvaluationStrategy getEvaluationStrategy() {
@@ -107,29 +129,23 @@ public class EvolutionEngineParameters {
     }
 
     private void addMutations() {
-        mutations.add(new AddConjunctMutation(services, termPool));
-        mutationProbabilities.add(2);
+//        addMutation(new AddConjunctMutation(this), 2);
+//        addMutation(new AddDisjunctMutation(this), 2);
+//        addMutation(new DeleteConjunctMutation(this), 2);
+//        addMutation(new DeleteDisjunctMutation(this), 2);
+//        addMutation(new NegateConjunctMutation(this), 1);
+//        addMutation(new NegateDisjunctMutation(this), 1);
+        addMutation(new StrengthenWeakenMutation(this), 2);
+        addMutation(new ReplaceVariableMutation(this), 12);
+    }
 
-        mutations.add(new AddDisjunctMutation(services, termPool));
-        mutationProbabilities.add(mutationProbabilities.getLast() + 2);
-
-        mutations.add(new DeleteConjunctMutation());
-        mutationProbabilities.add(mutationProbabilities.getLast() + 2);
-
-        mutations.add(new DeleteDisjunctMutation());
-        mutationProbabilities.add(mutationProbabilities.getLast() + 2);
-
-        mutations.add(new NegateConjunctMutation());
-        mutationProbabilities.add(mutationProbabilities.getLast() + 1);
-
-        mutations.add(new NegateDisjunctMutation());
-        mutationProbabilities.add(mutationProbabilities.getLast() + 1);
-
-        mutations.add(new StrengthenWeakenMutation(services));
-        mutationProbabilities.add(mutationProbabilities.getLast() + 2);
-
-        mutations.add(new ReplaceVariableMutation(termSortSet));
-        mutationProbabilities.add(mutationProbabilities.getLast() + 12);
+    private void addMutation(Mutation mutation, int probabilityShares) {
+        mutations.add(mutation);
+        if (mutationProbabilities.isEmpty()) {
+            mutationProbabilities.add(probabilityShares);
+        } else {
+            mutationProbabilities.add(mutationProbabilities.getLast() + probabilityShares);
+        }
     }
 
     public ReplaceReturnValueMutation getReplaceReturnValueMutation() {

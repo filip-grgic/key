@@ -1,16 +1,13 @@
 package de.uka.ilkd.key.util.loop_inv_generation.evolutionary;
 
 import de.uka.ilkd.key.java.Services;
-import de.uka.ilkd.key.logic.JTerm;
-import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.mutations.Mutation;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.replacement.IReplacementStrategy;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGen;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGenome;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.VerificationCondition;
-import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.GenomeGenerator;
 import org.key_project.logic.Term;
-import org.key_project.logic.sort.Sort;
 import org.key_project.util.collection.Pair;
 
 import java.util.*;
@@ -124,7 +121,7 @@ public class EvolutionEngine {
         }
 
         while (population.size() < this.parameters.getPopulationSize()) {
-            LoopInvariantFreeGenome genome = LoopInvariantFreeGenome.generateRandomGenome(parameters, services);
+            LoopInvariantFreeGenome genome = GenomeGenerator.generateGenome(parameters);
 
             population.add(genome);
         }
@@ -163,12 +160,13 @@ public class EvolutionEngine {
         for (LoopInvariantFreeGenome individual : population) {
             overallFitness += (verificationConditions.length - individual.getFitness());
         }
+        overallFitness += parameters.getPopulationSize();
 
-        probabilities[0] = (verificationConditions.length - population.getFirst().getFitness()) / overallFitness;
+        probabilities[0] = (verificationConditions.length + 1 - population.getFirst().getFitness()) / overallFitness;
         probabilities[population.size() - 1] = 1.0;
 
         for (int i = 1; i < population.size() - 1; i++) {
-            probabilities[i] = (verificationConditions.length - population.get(i).getFitness()) / overallFitness + probabilities[i - 1];
+            probabilities[i] = (verificationConditions.length + 1 - population.get(i).getFitness()) / overallFitness + probabilities[i - 1];
         }
 
         for (int i = 0; i <= parameters.getPopulationSize() * parameters.getReplacementRate(); i++) {
@@ -215,44 +213,8 @@ public class EvolutionEngine {
      * @param children that should be mutated
      */
     private void mutate(List<LoopInvariantFreeGenome> children) {
-        Random random = new Random();
-        List<Mutation> mutations = parameters.getMutations();
-        List<Integer> probabilities = parameters.getMutationProbabilities();
-
         for (LoopInvariantFreeGenome child : children) {
-            List<Mutation> possibleMutations = new ArrayList<>(mutations);
-            List<Integer> possibleMutationsProbabilities = new ArrayList<>(probabilities);
-            Mutation mutation = null;
-
-            if (parameters.getReplaceReturnValueMutation().suitableForMutation(child)) {
-                mutation = parameters.getReplaceReturnValueMutation();
-            }
-
-            while (!possibleMutations.isEmpty() && mutation != null) {
-                int index = Collections.binarySearch(possibleMutationsProbabilities, random.nextInt(possibleMutationsProbabilities.getLast()));
-                if (index < 0) {
-                    index = -index - 1;
-                }
-
-                Mutation potentialMutation = mutations.get(index);
-                if (potentialMutation.suitableForMutation(child)) {
-                    mutation = potentialMutation;
-                    break;
-                } else {
-                    possibleMutations.remove(index);
-                    int probUpdate = (index > 0) ? possibleMutationsProbabilities.get(index-1) : 0;
-                    probUpdate = possibleMutationsProbabilities.get(index) - probUpdate;
-                    List<Integer> probsPrefix = new ArrayList<>(possibleMutationsProbabilities.subList(0, index));
-                    for (int i = index + 1; i < possibleMutationsProbabilities.size(); i++) {
-                        probsPrefix.add(possibleMutationsProbabilities.get(i) - probUpdate);
-                    }
-                    possibleMutationsProbabilities = probsPrefix;
-                }
-            }
-
-            if (mutation != null) {
-                mutation.mutate(child);
-            }
+            Mutation.mutateChild(child, parameters);
         }
 
     }

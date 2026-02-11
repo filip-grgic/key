@@ -1,12 +1,13 @@
 package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.mutations;
 
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionEngineParameters;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGen;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGenome;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 
 public class DeleteDisjunctMutation extends Mutation {
-    public DeleteDisjunctMutation() {
-        super(null, null, null);
+    public DeleteDisjunctMutation(EvolutionEngineParameters parameters) {
+        super(parameters);
     }
 
     @Override

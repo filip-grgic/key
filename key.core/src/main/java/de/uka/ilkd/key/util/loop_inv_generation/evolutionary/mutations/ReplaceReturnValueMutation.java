@@ -1,5 +1,6 @@
 package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.mutations;
 
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionEngineParameters;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGenome;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import org.key_project.logic.Term;
@@ -8,8 +9,8 @@ import org.key_project.logic.sort.Sort;
 import java.util.Map;
 
 public class ReplaceReturnValueMutation extends ReplaceVariableMutation {
-    public ReplaceReturnValueMutation(Map<Sort, RandomAccessSet<Term>> termSortSet) {
-        super(termSortSet);
+    public ReplaceReturnValueMutation(EvolutionEngineParameters parameters) {
+        super(parameters);
     }
 
     @Override

@@ -4,6 +4,7 @@ import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionEngineParameters;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.evaluation.IEvaluationStrategy;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGenome;
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.GenomeGenerator;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,23 +46,17 @@ public class MixingWithImmigrationReplacement extends AbstractReplacementStrateg
 
         List<LoopInvariantFreeGenome> result = new ArrayList<>();
 
-        //Needed to avoid ConcurrentModificationException
-//        int eliteHalfSize = eliteHalf.size();
         while (result.size() < populationSize*elitistRate) {
-            int index = random.nextInt(eliteHalf.size());
-            result.add(eliteHalf.remove(index));
-//            eliteHalfSize--;
+            result.add(eliteHalf.removeFirst());
         }
 
-//        int worseHalfSize = worseHalf.size();
         while (result.size() < populationSize*(elitistRate + unfitRate)) {
             int index = random.nextInt(worseHalf.size());
             result.add(worseHalf.remove(index));
-//            worseHalfSize--;
         }
 
         while (result.size() < populationSize) {
-            result.add(LoopInvariantFreeGenome.generateRandomGenome(parameters, services));
+            result.add(GenomeGenerator.generateGenome(parameters));
         }
 
         evaluationStrategy.evaluate(result);

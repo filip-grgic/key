@@ -58,28 +58,6 @@ public abstract class LoopInvariantGen {
         return nonNegatedTerm;
     }
 
-//    /**
-//     * Checks whether the term in the gen contains the given program variable by checking whether the name exists
-//     * in the gen's variable namespace
-//     * @param programVariable that should be checked whether it is contained
-//     * @return true if there exists a variable with the same name in the gen, false if otherwise
-//     */
-//    public boolean containsProgramVariable(LocationVariable programVariable) {
-//        if (programVariable == null) {
-//            return false;
-//        }
-//
-//        return programVariableNameMap.containsKey(programVariable.name());
-//    }
-//
-//    public boolean containsProgramVariable(Name programVariableName) {
-//        if (programVariableName == null) {
-//            return false;
-//        }
-//
-//        return programVariableNameMap.containsKey(programVariableName);
-//    }
-
     public boolean containsTerm(Term term) {
         if (term == null) {
             return false;
@@ -87,25 +65,6 @@ public abstract class LoopInvariantGen {
 
         return containingTerms.contains(term);
     }
-
-//    /**
-//     * Replace all occurrences of oldVariable with newVariable in the term.
-//     * @param oldVariable the variable that should be replaced
-//     * @param newVariable the variable that should replace oldVariable
-//     */
-//    public abstract void replaceVariable(LocationVariable oldVariable, AbstractSortedOperator newVariable);
-//
-//    /**
-//     * Replace all occurrences of variables name oldVariableName with newVariable in the term.
-//     * @param oldVariableName the name of the variable that should be replaced
-//     * @param oldVariableSort the sort of the variable that should be replaced
-//     * @param newVariable the variable that should replace the old variable
-//     */
-//    public abstract void replaceVariable(Name oldVariableName, Sort oldVariableSort, AbstractSortedOperator newVariable);
-//
-//    public Map<Name, Sort> getProgramVariableNameMap() {
-//        return programVariableNameMap;
-//    }
 
     public Set<Term> getContainingTerms() {
         return containingTerms;

@@ -2,6 +2,7 @@ package de.uka.ilkd.key.util.loop_inv_generation.evolutionary;
 
 import de.uka.ilkd.key.java.JavaTools;
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.java.expression.Assignment;
 import de.uka.ilkd.key.java.statement.While;
 import de.uka.ilkd.key.ldt.JavaDLTheory;
 import de.uka.ilkd.key.logic.JTerm;
@@ -30,6 +31,8 @@ import de.uka.ilkd.key.util.loop_inv_generation.LoopInvariantGenerator;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.VerificationCondition;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import org.key_project.logic.Name;
+import org.key_project.logic.SyntaxElement;
+import org.key_project.logic.SyntaxElementCursor;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
 import org.key_project.prover.engine.ProofSearchInformation;
@@ -44,7 +47,8 @@ public class EvolutionaryLoopInvariantGenerator implements LoopInvariantGenerato
 
     private final Services services;
     private Term[] sequentTerms;
-    //    private Set<LocationVariable> programVariableSet;
+    private RandomAccessSet<LocationVariable> allVariables;
+    private RandomAccessSet<LocationVariable> changingVariables;
     private static final SolverType Z3_SOLVER = SolverTypes.getSolverTypes().stream()
             .filter(it -> it.getClass().equals(SolverTypeImplementation.class)
                     && it.getName().equals("Z3"))
@@ -67,7 +71,8 @@ public class EvolutionaryLoopInvariantGenerator implements LoopInvariantGenerato
 
         var termSorts = collectTermSorts(verificationConditions);
 
-        EvolutionEngineParameters engineParameters = new EvolutionEngineParameters(sequentTerms, termSorts, services, verificationConditions);
+        EvolutionEngineParameters engineParameters = new EvolutionEngineParameters(sequentTerms, allVariables,
+                changingVariables, termSorts, services, verificationConditions);
         engineParameters.setGenerations(40);
         engineParameters.setPopulationSize(20);
         engineParameters.setEvaluationThreads(5);
@@ -235,13 +240,10 @@ public class EvolutionaryLoopInvariantGenerator implements LoopInvariantGenerato
 
                     JTerm uninterpretedInvariantFunction = envTermBuilder.func(placeholderInvariant, predicateParameterTerms);
 
-//                    var invariantFormula = envTermBuilder.prog(
-//                            ((JModality) updateTermPair.second.op()).kind(),
-//                            termJavaBlock,
-//                            uninterpretedInvariantFunction
-//                    );
-//
-//                    invariantFormula = envTermBuilder.applySequential(updateTermPair.first, invariantFormula);
+                    allVariables = new RandomAccessSet<>();
+                    changingVariables = new RandomAccessSet<>();
+
+                    extractVariables((While) activeStatement, allVariables, changingVariables);
 
                     BasicLoopSpecificationImpl loopSpec = new BasicLoopSpecificationImpl((While) activeStatement,
                             uninterpretedInvariantFunction,
@@ -254,6 +256,33 @@ public class EvolutionaryLoopInvariantGenerator implements LoopInvariantGenerato
         }
 
         return sideSequent;
+    }
+
+    private void extractVariables(While activeStatement, Set<LocationVariable> allVariables, Set<LocationVariable> changingVariables) {
+        extractVariablesWithCursor(activeStatement.getBody(), allVariables, changingVariables);
+        extractVariablesWithCursor(activeStatement.getGuard(), allVariables, changingVariables);
+    }
+
+    private void extractVariablesWithCursor(SyntaxElement element, Set<LocationVariable> allVariables, Set<LocationVariable> changingVariables) {
+        SyntaxElementCursor cursor = element.getCursor();
+
+        while (cursor.hasNext()) {
+            SyntaxElement currentElement = cursor.getCurrentNode();
+
+            if (currentElement instanceof LocationVariable) {
+                allVariables.add((LocationVariable) currentElement);
+            }
+
+            if (currentElement instanceof Assignment) {
+                if (currentElement.getChild(0) instanceof LocationVariable) {
+                    changingVariables.add((LocationVariable) currentElement.getChild(0));
+                }
+            }
+
+            if (!cursor.goToNext()) {
+                break;
+            }
+        }
     }
 
     private void prepareProof(ProofStarter proofStarter, Proof sideProof) {

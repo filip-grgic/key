@@ -1,10 +1,11 @@
 package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.mutations;
 
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionEngineParameters;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGenome;
 
 public class NegateConjunctMutation extends Mutation {
-    public NegateConjunctMutation() {
-        super(null, null, null);
+    public NegateConjunctMutation(EvolutionEngineParameters parameters) {
+        super(parameters);
     }
 
     @Override
