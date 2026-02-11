@@ -91,9 +91,9 @@ public class LoopInvariantFreeGenome {
             Term disjunction = null;
             for (LoopInvariantFreeGen disjunct : conjunct) {
                 if (disjunction == null) {
-                    disjunction = disjunct.translateToTerm();
+                    disjunction = disjunct.getTerm();
                 } else {
-                    disjunction = termBuilder.or((JTerm) disjunction, (JTerm) disjunct.translateToTerm());
+                    disjunction = termBuilder.or((JTerm) disjunction, (JTerm) disjunct.getTerm());
                 }
             }
 
@@ -319,7 +319,7 @@ public class LoopInvariantFreeGenome {
         for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts) {
             RandomAccessSet<LoopInvariantFreeGen> newConjunct = new RandomAccessSet<>();
             for (LoopInvariantFreeGen disjunct : conjunct) {
-                newConjunct.add(disjunct.copy());
+                newConjunct.add(((LoopInvariantFreeGen) disjunct.copy()));
             }
             newGenome.addConjunct(newConjunct);
         }

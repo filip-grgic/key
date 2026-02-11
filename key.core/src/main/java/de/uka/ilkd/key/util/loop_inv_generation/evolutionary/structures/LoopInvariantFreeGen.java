@@ -5,23 +5,23 @@ import de.uka.ilkd.key.ldt.IntegerLDT;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.TermFactory;
+import de.uka.ilkd.key.logic.op.Junctor;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.TermSortCollector;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import org.key_project.logic.Term;
-import org.key_project.logic.op.Function;
 import org.key_project.logic.sort.Sort;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class LoopInvariantFreeGen extends LoopInvariantGen {
 
     private final Services services;
+    private Term term;
+    protected boolean affirmative;
 
     //TODO: include constants somehow
 
     public LoopInvariantFreeGen(Services services, Term term) {
         super();
+        affirmative = true;
         this.services = services;
         TermFactory termFactory = services.getTermFactory();
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
@@ -65,6 +65,7 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         this.affirmative = other.affirmative;
     }
 
+
     /**
      * @return the left sub term of the gen's term
      */
@@ -79,7 +80,8 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         return term.sub(1);
     }
 
-    public Term translateToTerm() {
+    @Override
+    public Term getTerm() {
         TermBuilder termBuilder = services.getTermBuilder();
         TermFactory termFactory = services.getTermFactory();
         JTerm result = termFactory.createTerm((JTerm) term);
@@ -91,7 +93,23 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         return result;
     }
 
-    private void collectAllTerms() {
+    /**
+     * Inverts the negation of the term that is represented by the gen.
+     */
+    public void negate() {
+        affirmative = !affirmative;
+    }
+
+    /**
+     * Signals, whether the term in the gen is negated or.
+     * @return true, if there is a negation symbol, false otherwise
+     */
+    public boolean isNegated() {
+        return !affirmative;
+    }
+
+    @Override
+    protected void collectAllTerms() {
         //Collect all integer terms
         containingTerms = new RandomAccessSet<>();
         TermSortCollector tsc = new TermSortCollector(services, false, false);
@@ -101,12 +119,30 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         }
     }
 
+    @Override
     public void replaceTerm(Term oldTerm, Term newTerm) {
         if (!oldTerm.sort().equals(newTerm.sort())) {
             return;
         }
 
         term = services.getTermBuilder().replaceContainingTerm(term, oldTerm, newTerm);
+    }
+
+    /**
+     * Removes the negation and sets affirmative to false, in case term contains a negation as the highest operator.
+     * Otherwise, the same term is returned back.
+     * @param term the term that may or may not start with a negation
+     * @return a non-negated term
+     */
+    private Term extractedNonNegatedTerm(Term term) {
+        affirmative = true;
+        Term nonNegatedTerm = term;
+        if (term.op().equals(Junctor.NOT)) {
+            affirmative = false;
+            nonNegatedTerm = term.sub(0);
+        }
+
+        return nonNegatedTerm;
     }
 
     @Override
@@ -128,7 +164,8 @@ public class LoopInvariantFreeGen extends LoopInvariantGen {
         return hashCode;
     }
 
-    public LoopInvariantFreeGen copy() {
+    @Override
+    public LoopInvariantGen copy() {
         LoopInvariantFreeGen newGen = new LoopInvariantFreeGen(services, this.term);
         newGen.affirmative = affirmative;
         return newGen;
