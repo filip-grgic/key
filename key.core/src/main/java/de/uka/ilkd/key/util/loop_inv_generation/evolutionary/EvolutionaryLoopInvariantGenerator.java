@@ -30,6 +30,8 @@ import de.uka.ilkd.key.util.SideProofUtil;
 import de.uka.ilkd.key.util.loop_inv_generation.LoopInvariantGenerator;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.VerificationCondition;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.visitors.EnsuresTermCollector;
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.visitors.TermSortCollector;
 import org.key_project.logic.Name;
 import org.key_project.logic.SyntaxElement;
 import org.key_project.logic.SyntaxElementCursor;
@@ -64,15 +66,14 @@ public class EvolutionaryLoopInvariantGenerator implements LoopInvariantGenerato
     }
 
     public Term generateLoopInvariant() {
-        Sequent runningSequent = services.getProof().openGoals().head().sequent();
-//        var termSorts = collectTermSorts(runningSequent);
+        List<Term> postconditions = getPostconditions();
 
         VerificationCondition[] verificationConditions = generateVerificationConditions();
 
         var termSorts = collectTermSorts(verificationConditions);
 
         EvolutionEngineParameters engineParameters = new EvolutionEngineParameters(sequentTerms, allVariables,
-                changingVariables, termSorts, services, verificationConditions);
+                changingVariables, termSorts, services, verificationConditions, postconditions);
         engineParameters.setGenerations(40);
         engineParameters.setPopulationSize(20);
         engineParameters.setEvaluationThreads(5);
@@ -88,6 +89,57 @@ public class EvolutionaryLoopInvariantGenerator implements LoopInvariantGenerato
             System.out.println("Did not find an invariant solution");
             return null;
         }
+    }
+
+    private List<Term> getPostconditions() {
+        Term postcondition = services.getProof().root().sequent().succedent().getFirst().formula().sub(1).sub(1).sub(0);
+        Queue<Term> processQueue = new ArrayDeque<>();
+        processQueue.add(postcondition);
+
+        List<Term> postconditions = new ArrayList<>();
+
+        while (!processQueue.isEmpty()) {
+            Term currentTerm = processQueue.poll();
+
+            if (currentTerm.op().name().toString().equals("and")) {
+                processQueue.add(currentTerm.sub(0));
+                processQueue.add(currentTerm.sub(1));
+            } else {
+                postconditions.add(currentTerm);
+            }
+        }
+
+        return filterPostconditions(postconditions);
+    }
+
+    private List<Term> filterPostconditions(List<Term> postconditions) {
+        List<Term> result = new ArrayList<>();
+
+        for (Term postcondition : postconditions) {
+            if (!containsForbiddenSort(postcondition)) {
+                result.add(postcondition);
+            }
+        }
+
+        return result;
+    }
+
+    private boolean containsForbiddenSort(Term term) {
+        if (term.sort().equals(services.getTypeConverter().getIntegerLDT().targetSort())) {
+            return false;
+        }
+
+        if (!term.subs().isEmpty()) {
+            for (Term sub : term.subs()) {
+                if (containsForbiddenSort(sub)) {
+                    return true;
+                }
+            }
+        } else {
+            return !term.sort().equals(services.getTypeConverter().getIntegerLDT().targetSort());
+        }
+
+        return false;
     }
 
     private VerificationCondition[] generateVerificationConditions() {

@@ -4,7 +4,7 @@ import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.op.LocationVariable;
-import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.TermSortCollector;
+import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.visitors.TermSortCollector;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;

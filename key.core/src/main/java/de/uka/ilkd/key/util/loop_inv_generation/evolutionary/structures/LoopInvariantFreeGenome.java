@@ -16,6 +16,7 @@ public class LoopInvariantFreeGenome {
     private static LoopInvariantFreeGenomeComparator comparator;
 
     private final RandomAccessSet<RandomAccessSet<LoopInvariantFreeGen>> conjuncts;
+    private final RandomAccessSet<LoopInvariantLimitingGen> limitingGens;
     private final Services services;
     private double fitness;
     private boolean changedSinceCalc;
@@ -37,6 +38,7 @@ public class LoopInvariantFreeGenome {
 
     public LoopInvariantFreeGenome(Services services, VerificationCondition[] verificationConditions) {
         this.conjuncts = new RandomAccessSet<>();
+        this.limitingGens = new RandomAccessSet<>();
         this.services = services;
         this.verificationConditions = verificationConditions;
 //        programVariableNameMap =  new HashMap<>();
@@ -101,6 +103,14 @@ public class LoopInvariantFreeGenome {
                 conjunction = disjunction;
             } else {
                 conjunction = termBuilder.and((JTerm) conjunction, (JTerm) disjunction);
+            }
+        }
+
+        for (LoopInvariantLimitingGen limitingGen : limitingGens) {
+            if (conjunction == null) {
+                conjunction = limitingGen.getTerm();
+            } else {
+                conjunction = termBuilder.and((JTerm) limitingGen.getTerm(), (JTerm) conjunction);
             }
         }
 

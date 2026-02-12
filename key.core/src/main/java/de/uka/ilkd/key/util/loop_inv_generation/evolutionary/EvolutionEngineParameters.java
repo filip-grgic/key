@@ -17,6 +17,7 @@ import java.util.*;
 public class EvolutionEngineParameters {
 
     private final VerificationCondition[] verificationConditions;
+    private final List<Term> postconditions;
     //Negative amount of generations signals infinite amounts
     private int generations = -1;
     private int populationSize = 10;
@@ -39,13 +40,15 @@ public class EvolutionEngineParameters {
                                      RandomAccessSet<LocationVariable> changingVariables,
                                      Map<Sort, RandomAccessSet<Term>> termSortSet,
                                      Services services,
-                                     VerificationCondition[] verificationConditions) {
+                                     VerificationCondition[] verificationConditions,
+                                     List<Term> postconditions) {
         this.termPool = termPool;
         this.allVariables = allVariables;
         this.changingVariables = changingVariables;
         this.termSortSet = termSortSet;
         this.services = services;
         this.verificationConditions = verificationConditions;
+        this.postconditions = postconditions;
         this.evaluationStrategy = new EvaluationStrategy(evaluationThreads);
         this.replacementStrategy = new MixingWithImmigrationReplacement(0.3, 0.3, this, services, evaluationStrategy);
         this.replaceReturnValueMutation = new ReplaceReturnValueMutation(this);
@@ -71,6 +74,10 @@ public class EvolutionEngineParameters {
 
     public VerificationCondition[] getVerificationConditions() {
         return verificationConditions;
+    }
+
+    public List<Term> getPostconditions() {
+        return postconditions;
     }
 
     public double getReplacementRate() {

@@ -1,23 +1,17 @@
-package de.uka.ilkd.key.util.loop_inv_generation.evolutionary;
+package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.visitors;
 
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.DefaultVisitor;
-import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.LabeledTermImpl;
-import de.uka.ilkd.key.logic.TermFactory;
 import de.uka.ilkd.key.logic.label.OriginTermLabel;
 import de.uka.ilkd.key.logic.label.TermLabel;
-import de.uka.ilkd.key.logic.op.*;
 import org.key_project.logic.Term;
-import org.key_project.logic.op.Operator;
-import org.key_project.logic.sort.Sort;
 
 import java.util.*;
 
 public class EnsuresTermCollector implements DefaultVisitor {
 
     private final HashSet<Term> result = new LinkedHashSet<>();
-    //    //TODO: Need to incorporate quantors
     private Services services;
 
     public EnsuresTermCollector(Services services) {

@@ -1,4 +1,4 @@
-package de.uka.ilkd.key.util.loop_inv_generation.evolutionary;
+package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.visitors;
 
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.DefaultVisitor;
