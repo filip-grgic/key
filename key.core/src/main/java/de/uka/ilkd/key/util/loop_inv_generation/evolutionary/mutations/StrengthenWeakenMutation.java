@@ -10,6 +10,7 @@ import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInva
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import org.key_project.logic.Term;
 
+import java.util.List;
 import java.util.Random;
 
 public class StrengthenWeakenMutation extends Mutation {
@@ -22,8 +23,8 @@ public class StrengthenWeakenMutation extends Mutation {
         Random random = new Random();
         TermBuilder termBuilder = services.getTermBuilder();
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
-        RandomAccessSet<LoopInvariantFreeGen> conjunct = genome.getRandomConjunct();
-        LoopInvariantFreeGen disjunct = conjunct.getRandomElement();
+        List<LoopInvariantFreeGen> postcondition = genome.getRandomPostcondition();
+        LoopInvariantFreeGen disjunct = postcondition.get(random.nextInt(postcondition.size()));
         Term disjunctTerm = disjunct.getTerm();
         Term newTerm;
 
@@ -68,8 +69,8 @@ public class StrengthenWeakenMutation extends Mutation {
             newDisjunct.negate();
         }
 
-        conjunct.remove(disjunct);
-        conjunct.add(newDisjunct);
+        postcondition.remove(disjunct);
+        postcondition.add(newDisjunct);
     }
 
     @Override

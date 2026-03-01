@@ -29,6 +29,18 @@ public class LoopInvariantLimitingGen extends LoopInvariantGen {
                 services.getTermFactory().createTerm((JTerm) other.upperLimit));
     }
 
+    public LocationVariable getVariable() {
+        return variable;
+    }
+
+    public Term getLowerLimit() {
+        return lowerLimit;
+    }
+
+    public Term getUpperLimit() {
+        return upperLimit;
+    }
+
     @Override
     public Term getTerm() {
         Term result = null;
@@ -104,8 +116,25 @@ public class LoopInvariantLimitingGen extends LoopInvariantGen {
     public int hashCode() {
         int hashCode = 19;
         hashCode = hashCode * 37 + variable.hashCode();
-        hashCode = hashCode * 37 + lowerLimit.hashCode();
-        hashCode = hashCode * 37 + upperLimit.hashCode();
+        if (lowerLimit != null) {
+            hashCode = hashCode * 37 + lowerLimit.hashCode();
+        }
+        if (upperLimit != null) {
+            hashCode = hashCode * 37 + upperLimit.hashCode();
+        }
         return hashCode;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        if (lowerLimit != null) {
+            sb.append(String.format("%s <= ", lowerLimit));
+        }
+        sb.append(variable);
+        if (upperLimit != null) {
+            sb.append(String.format(" <= %s", upperLimit));
+        }
+        return sb.toString();
     }
 }

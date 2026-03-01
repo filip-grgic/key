@@ -10,7 +10,8 @@ public class NegateDisjunctMutation extends Mutation {
 
     @Override
     public void mutate(LoopInvariantFreeGenome genome) {
-        genome.getRandomConjunct().getRandomElement().negate();
+        //TODO: Check later whether impactfulness
+        //genome.getRandomPostcondition().getRandomElement().negate();
     }
 
     @Override

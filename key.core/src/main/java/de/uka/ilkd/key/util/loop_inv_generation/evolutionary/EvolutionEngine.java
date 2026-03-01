@@ -103,27 +103,8 @@ public class EvolutionEngine {
      * {@code this.parameters}.
      */
     private void init() {
-        Random random = new Random();
-        Mutation replaceReturnValueMutation = parameters.getReplaceReturnValueMutation();
-
-        while (population.size() < this.parameters.getPopulationSize() * 0.5) {
-            int randomTermIndex = random.nextInt(termPool.length);
-            LoopInvariantFreeGen gen = new LoopInvariantFreeGen(services, termPool[randomTermIndex]);
-
-            LoopInvariantFreeGenome genome = new LoopInvariantFreeGenome(services, verificationConditions);
-            genome.addConjunct(gen);
-
-            if (replaceReturnValueMutation.suitableForMutation(genome)) {
-                replaceReturnValueMutation.mutate(genome);
-            }
-
-            population.add(genome);
-        }
-
         while (population.size() < this.parameters.getPopulationSize()) {
-            LoopInvariantFreeGenome genome = GenomeGenerator.generateGenome(parameters);
-
-            population.add(genome);
+            population.add(GenomeGenerator.generateGenome(parameters));
         }
     }
 

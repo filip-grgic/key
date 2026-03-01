@@ -1,6 +1,5 @@
 package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.mutations;
 
-import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionEngineParameters;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGen;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGenome;
@@ -22,7 +21,7 @@ public class AddConjunctMutation extends Mutation {
     public void mutate(LoopInvariantFreeGenome genome) {
         Random random = new Random();
         Term term = termPool[random.nextInt(termPool.length)];
-        genome.addConjunct(new LoopInvariantFreeGen(services, term));
+        genome.addPostcondition(new LoopInvariantFreeGen(services, term));
     }
 
     @Override

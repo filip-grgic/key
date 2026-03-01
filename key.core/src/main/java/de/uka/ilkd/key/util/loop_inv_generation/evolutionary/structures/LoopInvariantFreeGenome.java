@@ -3,11 +3,10 @@ package de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
-import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionEngineParameters;
+import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.LoopInvariantFreeGenomeComparator;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import org.key_project.logic.Term;
-import org.key_project.logic.sort.Sort;
 
 import java.util.*;
 
@@ -15,8 +14,9 @@ public class LoopInvariantFreeGenome {
 
     private static LoopInvariantFreeGenomeComparator comparator;
 
-    private final RandomAccessSet<RandomAccessSet<LoopInvariantFreeGen>> conjuncts;
-    private final RandomAccessSet<LoopInvariantLimitingGen> limitingGens;
+    //    private final RandomAccessSet<RandomAccessSet<LoopInvariantFreeGen>> conjuncts;
+    private final List<List<LoopInvariantFreeGen>> postconditions;
+    private final Map<LocationVariable, LoopInvariantLimitingGen> limitingGens;
     private final Services services;
     private double fitness;
     private boolean changedSinceCalc;
@@ -36,20 +36,54 @@ public class LoopInvariantFreeGenome {
         return comparator;
     }
 
-    public LoopInvariantFreeGenome(Services services, VerificationCondition[] verificationConditions) {
-        this.conjuncts = new RandomAccessSet<>();
-        this.limitingGens = new RandomAccessSet<>();
+    private LoopInvariantFreeGenome(Services services,
+                                    VerificationCondition[] verificationConditions) {
+        this(services, verificationConditions, new ArrayList<>());
+        assert this.postconditions.isEmpty();
+    }
+
+    public LoopInvariantFreeGenome(Services services,
+                                   VerificationCondition[] verificationConditions,
+                                   List<Term> postconditions) {
         this.services = services;
+//        this.conjuncts = new RandomAccessSet<>();
+        this.postconditions = extractPostconditions(postconditions);
+        this.limitingGens = new HashMap<>();
         this.verificationConditions = verificationConditions;
 //        programVariableNameMap =  new HashMap<>();
-        containingTermsRefreshed = true;
+        containingTermsRefreshed = false;
         changedSinceCalc = true;
         validVerificationConditions = new HashSet<>();
         nonvalidVerificationConditions = new HashSet<>();
     }
 
+    private List<List<LoopInvariantFreeGen>> extractPostconditions(List<Term> postconditions) {
+        List<List<LoopInvariantFreeGen>> result = new ArrayList<>();
+
+        for (Term postcondition : postconditions) {
+            List<LoopInvariantFreeGen> genes = new ArrayList<>();
+            Queue<Term> queue = new LinkedList<>();
+            queue.add(postcondition);
+
+            while (!queue.isEmpty()) {
+                Term currentTerm = queue.poll();
+
+                if (currentTerm.op().name().toString().equals("or")) {
+                    queue.add(currentTerm.sub(0));
+                    queue.add(currentTerm.sub(1));
+                } else {
+                    genes.add(new LoopInvariantFreeGen(services, currentTerm));
+                }
+            }
+
+            result.add(genes);
+        }
+
+        return result;
+    }
+
     public LoopInvariantFreeGenome(Services services) {
-        this(services, new VerificationCondition[0]);
+        this(services, new VerificationCondition[0], new ArrayList<>());
     }
 
     /**
@@ -89,7 +123,7 @@ public class LoopInvariantFreeGenome {
         TermBuilder termBuilder = services.getTermBuilder();
 
         Term conjunction = null;
-        for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts) {
+        for (List<LoopInvariantFreeGen> conjunct : postconditions) {
             Term disjunction = null;
             for (LoopInvariantFreeGen disjunct : conjunct) {
                 if (disjunction == null) {
@@ -106,12 +140,17 @@ public class LoopInvariantFreeGenome {
             }
         }
 
-        for (LoopInvariantLimitingGen limitingGen : limitingGens) {
+        for (LocationVariable variableKey : limitingGens.keySet()) {
+            LoopInvariantLimitingGen limitingGen = limitingGens.get(variableKey);
             if (conjunction == null) {
                 conjunction = limitingGen.getTerm();
             } else {
                 conjunction = termBuilder.and((JTerm) limitingGen.getTerm(), (JTerm) conjunction);
             }
+        }
+
+        if (conjunction == null) {
+            conjunction = termBuilder.tt();
         }
 
         return conjunction;
@@ -127,12 +166,32 @@ public class LoopInvariantFreeGenome {
     public LoopInvariantFreeGenome combine(LoopInvariantFreeGenome other) {
         LoopInvariantFreeGenome result = new LoopInvariantFreeGenome(services, verificationConditions);
 
-        if (other == null || (this.conjuncts.isEmpty() && other.conjuncts.isEmpty())) {
+        if (other == null) {
+            result.postconditions.addAll(this.postconditions);
             return result;
         }
 
-        for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts.union(other.conjuncts)) {
-            result.addConjunct(conjunct);
+        assert this.postconditions.size() == other.postconditions.size();
+
+        Random random = new Random();
+
+        for (int i = 0; i < this.postconditions.size(); i++) {
+            if (random.nextBoolean()) {
+                result.postconditions.add(this.postconditions.get(i));
+            } else {
+                result.postconditions.add(other.postconditions.get(i));
+            }
+        }
+
+        Set<LocationVariable> keys = new HashSet<>(this.limitingGens.keySet());
+        keys.addAll(other.limitingGens.keySet());
+
+        for (LocationVariable key : keys) {
+            LoopInvariantFreeGenome chosenGenome = (random.nextBoolean()) ? this : other;
+
+            if (chosenGenome.limitingGens.containsKey(key)) {
+                result.limitingGens.put(key, chosenGenome.limitingGens.get(key));
+            }
         }
 
         result.changedSinceCalc = true;
@@ -157,90 +216,74 @@ public class LoopInvariantFreeGenome {
      * @return the amount of conjuncts in the genome
      */
     public int size() {
-        return conjuncts.size();
+        return postconditions.size() + limitingGens.size();
     }
 
-    public RandomAccessSet<RandomAccessSet<LoopInvariantFreeGen>> getConjuncts() {
-        return conjuncts;
+    public List<List<LoopInvariantFreeGen>> getPostconditions() {
+        return postconditions;
     }
 
-    public RandomAccessSet<LoopInvariantFreeGen> getRandomConjunct() {
-        return conjuncts.getRandomElement();
+    public List<LoopInvariantFreeGen> getRandomPostcondition() {
+        Random random = new Random();
+        int index = random.nextInt(postconditions.size());
+        return postconditions.get(index);
+    }
+
+    public void addLimitingGen(LoopInvariantLimitingGen gen) {
+        limitingGens.put(gen.getVariable(), gen);
+    }
+
+    public Map<LocationVariable, LoopInvariantLimitingGen> getLimitingGenes() {
+        return limitingGens;
     }
 
     /**
      * Adds the provided list of genes as a conjunct, where every element of that list represents a disjunct of a
      * disjunction.
      *
-     * @param conjunct that is going to be added
+     * @param postcondition that is going to be added
      */
-    public void addConjunct(RandomAccessSet<LoopInvariantFreeGen> conjunct) {
-        RandomAccessSet<LoopInvariantFreeGen> newConjunct = new RandomAccessSet<>();
-        for (LoopInvariantFreeGen disjunct : conjunct) {
+    public void addPostcondition(List<LoopInvariantFreeGen> postcondition) {
+        List<LoopInvariantFreeGen> newConjunct = new ArrayList<>();
+        for (LoopInvariantFreeGen disjunct : postcondition) {
             newConjunct.add(new LoopInvariantFreeGen(disjunct));
         }
-        this.conjuncts.add(newConjunct);
+        this.postconditions.add(newConjunct);
         changedSinceCalc = true;
         containingTermsRefreshed = false;
     }
 
     /**
-     * Adds the provided gen as its own conjunct into the genome.
+     * Adds the provided gen as its own postcondition into the genome.
      *
-     * @param conjunct that is going to be added
+     * @param postcondition that is going to be added
      */
-    public void addConjunct(LoopInvariantFreeGen conjunct) {
-        RandomAccessSet<LoopInvariantFreeGen> newConjunct = new RandomAccessSet<>();
-        newConjunct.add(conjunct);
-        addConjunct(newConjunct);
+    public void addPostcondition(LoopInvariantFreeGen postcondition) {
+        List<LoopInvariantFreeGen> newPostcondition = new ArrayList<>();
+        newPostcondition.add(postcondition);
+        this.addPostcondition(newPostcondition);
     }
 
-    public void removeRandomConjunct() {
-        conjuncts.removeRandomElement();
+    public List<LoopInvariantFreeGen> removeRandomConjunct() {
+        Random random = new Random();
+        int index = random.nextInt(postconditions.size());
+        return postconditions.remove(index);
     }
 
     /**
      * Flips the polarity of the conjunct at the provided index. Since the conjunct is a disjunction, the individual
      * disjuncts are negated and added as conjuncts into the genome, whereas the original conjunct is removed.
      */
-    public void negateRandomConjunct() {
-        RandomAccessSet<LoopInvariantFreeGen> removedConjunct = conjuncts.removeRandomElement();
+    private void negateRandomConjunct() {
+        List<LoopInvariantFreeGen> removedConjunct = removeRandomConjunct();
 
         for (LoopInvariantFreeGen disjunct : removedConjunct) {
             disjunct.negate();
-            addConjunct(disjunct);
+            addPostcondition(disjunct);
         }
 
         changedSinceCalc = true;
 
-    }
-
-    static public LoopInvariantFreeGenome generateRandomGenome(EvolutionEngineParameters parameters,
-                                                               Services services) {
-        Map<Sort, RandomAccessSet<Term>> termSorts = parameters.getTermSortSet();
-        RandomAccessSet<Term> integerTerms = termSorts.get(services.getTypeConverter().getIntegerLDT().targetSort());
-
-        Random random = new Random();
-
-        TermBuilder termBuilder = services.getTermBuilder();
-        Term left = integerTerms.getRandomElement();
-        Term right = integerTerms.getRandomElement();
-
-        Term randomTerm = switch (random.nextInt(5)) {
-            case 0 -> termBuilder.lt((JTerm) left, (JTerm) right);
-            case 1 -> termBuilder.leq((JTerm) left, (JTerm) right);
-            case 2 -> termBuilder.gt((JTerm) left, (JTerm) right);
-            case 3 -> termBuilder.geq((JTerm) left, (JTerm) right);
-            case 4 -> termBuilder.equals((JTerm) left, (JTerm) right);
-            default -> null;
-        };
-
-        assert randomTerm != null;
-
-        LoopInvariantFreeGen gen = new LoopInvariantFreeGen(services, randomTerm);
-        LoopInvariantFreeGenome genome = new  LoopInvariantFreeGenome(services, parameters.getVerificationConditions());
-        genome.addConjunct(gen);
-        return genome;
     }
 
     public boolean containsReturnValue() {
@@ -259,8 +302,8 @@ public class LoopInvariantFreeGenome {
             return false;
         }
 
-        for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts) {
-            for (LoopInvariantFreeGen disjunct : conjunct) {
+        for (List<LoopInvariantFreeGen> postcondition : postconditions) {
+            for (LoopInvariantFreeGen disjunct : postcondition) {
                 if (disjunct.containsTerm(term)) {
                     return true;
                 }
@@ -271,11 +314,13 @@ public class LoopInvariantFreeGenome {
     }
 
     public void replaceTerm(Term oldTerm, Term newTerm) {
-        for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts) {
-            for (LoopInvariantFreeGen disjunct : conjunct) {
+        for (List<LoopInvariantFreeGen> postcondition : postconditions) {
+            for (LoopInvariantFreeGen disjunct : postcondition) {
                 disjunct.replaceTerm(oldTerm, newTerm);
             }
         }
+
+        limitingGens.forEach((key, gen) -> gen.replaceTerm(oldTerm, newTerm));
 
         if (oldTerm.op().name().equals(returnValue.op().name())) {
             if (newTerm.op().name().toString().startsWith("result_")) {
@@ -301,21 +346,27 @@ public class LoopInvariantFreeGenome {
 
         containingTerms = new RandomAccessSet<>();
 
-        for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts) {
-            for (LoopInvariantFreeGen disjunct : conjunct) {
-                containingTerms.addAll(disjunct.getContainingTerms());
+        List<LoopInvariantGen> genes = new ArrayList<>();
 
-                if (returnValue == null) {
-                    for (Term containingTerm : disjunct.getContainingTerms()) {
-                        if (containingTerm.op().name().toString().startsWith("result_")) {
-                            returnValue = containingTerm;
-                            break;
-                        }
+        for (List<LoopInvariantFreeGen> postcondition : postconditions) {
+            genes.addAll(postcondition);
+        }
+
+        limitingGens.forEach((key, gen) -> genes.add(gen));
+
+        for (LoopInvariantGen gen : genes) {
+            containingTerms.addAll(gen.getContainingTerms());
+
+            if (returnValue == null) {
+                for (Term containingTerm : gen.getContainingTerms()) {
+                    if (containingTerm.op().name().toString().startsWith("result_")) {
+                        returnValue = containingTerm;
+                        break;
                     }
                 }
-
             }
         }
+
         containingTermsRefreshed = true;
     }
 
@@ -326,12 +377,17 @@ public class LoopInvariantFreeGenome {
      */
     public LoopInvariantFreeGenome copy() {
         LoopInvariantFreeGenome newGenome = new LoopInvariantFreeGenome(services, verificationConditions);
-        for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts) {
-            RandomAccessSet<LoopInvariantFreeGen> newConjunct = new RandomAccessSet<>();
-            for (LoopInvariantFreeGen disjunct : conjunct) {
+        for (List<LoopInvariantFreeGen> postcondition : postconditions) {
+            List<LoopInvariantFreeGen> newConjunct = new ArrayList<>();
+            for (LoopInvariantFreeGen disjunct : postcondition) {
                 newConjunct.add(((LoopInvariantFreeGen) disjunct.copy()));
             }
-            newGenome.addConjunct(newConjunct);
+            newGenome.addPostcondition(newConjunct);
+        }
+
+        for (LocationVariable locationVariable : limitingGens.keySet()) {
+            newGenome.limitingGens.put(locationVariable,
+                    (LoopInvariantLimitingGen) limitingGens.get(locationVariable).copy());
         }
 
         return newGenome;
@@ -340,18 +396,25 @@ public class LoopInvariantFreeGenome {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+
+        sb.append("Limiting Genes:\n");
+        for (LocationVariable locationVariable : limitingGens.keySet()) {
+            sb.append(String.format("\t%s: %s\n", locationVariable.name(), limitingGens.get(locationVariable)));
+        }
+
+        sb.append("\nPostconditions\n");
         int i = 0;
-        for (RandomAccessSet<LoopInvariantFreeGen> conjunct : conjuncts) {
+        for (List<LoopInvariantFreeGen> postcondition : postconditions) {
             int j = 0;
-            for (LoopInvariantFreeGen disjunct : conjunct) {
+            for (LoopInvariantFreeGen disjunct : postcondition) {
                 sb.append(disjunct);
-                if (j + 1 < conjunct.size()) {
+                if (j + 1 < postcondition.size()) {
                     sb.append(" OR");
                 }
                 sb.append("\n");
                 j++;
             }
-            if (i + 1 < conjuncts.size()) {
+            if (i + 1 < postconditions.size()) {
                 sb.append("AND");
             }
 
@@ -372,11 +435,47 @@ public class LoopInvariantFreeGenome {
             return false;
         }
 
-        return conjuncts.equals(((LoopInvariantFreeGenome) obj).conjuncts);
+        LoopInvariantFreeGenome other = (LoopInvariantFreeGenome) obj;
+
+        if (!this.limitingGens.keySet().equals(other.limitingGens.keySet())) {
+            return false;
+        }
+
+        for (LocationVariable locationVariable : limitingGens.keySet()) {
+            if (!this.limitingGens.get(locationVariable).equals(other.limitingGens.get(locationVariable))) {
+                return false;
+            }
+        }
+
+        if (this.postconditions.size() != other.postconditions.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < postconditions.size(); i++) {
+
+            if (this.postconditions.get(i).size() != other.postconditions.get(i).size()) {
+                return false;
+            }
+
+            for (int j = 0; j < postconditions.get(i).size(); j++) {
+                if (this.postconditions.get(i).get(j) != other.postconditions.get(i).get(j)) {
+                    return false;
+                }
+
+                if (!postconditions.get(i).get(j).equals(other.postconditions.get(i).get(j))) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     @Override
     public int hashCode() {
-        return conjuncts.hashCode();
+        int hashCode = 67;
+        hashCode = hashCode * 73 + limitingGens.hashCode();
+        hashCode = hashCode * 73 + postconditions.hashCode();
+        return hashCode;
     }
 }

@@ -142,7 +142,8 @@ public class EvolutionEngineParameters {
 //        addMutation(new DeleteDisjunctMutation(this), 2);
 //        addMutation(new NegateConjunctMutation(this), 1);
 //        addMutation(new NegateDisjunctMutation(this), 1);
-        addMutation(new StrengthenWeakenMutation(this), 2);
+//        addMutation(new StrengthenWeakenMutation(this), 2);
+        addMutation(new AgingMutation(this), 2);
         addMutation(new ReplaceVariableMutation(this), 12);
     }
 
