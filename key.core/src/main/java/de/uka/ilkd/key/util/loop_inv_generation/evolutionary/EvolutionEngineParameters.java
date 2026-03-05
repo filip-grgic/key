@@ -7,7 +7,7 @@ import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.evaluation.Evaluati
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.mutations.*;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.replacement.AbstractReplacementStrategy;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.replacement.MixingWithImmigrationReplacement;
-import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.VerificationCondition;
+import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;

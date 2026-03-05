@@ -27,8 +27,8 @@ import de.uka.ilkd.key.strategy.JavaCardDLStrategyFactory;
 import de.uka.ilkd.key.strategy.StrategyProperties;
 import de.uka.ilkd.key.util.ProofStarter;
 import de.uka.ilkd.key.util.SideProofUtil;
-import de.uka.ilkd.key.util.loop_inv_generation.LoopInvariantGenerator;
-import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.VerificationCondition;
+import de.uka.ilkd.key.util.loop_inv_generation.ILoopInvariantGenerator;
+import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.visitors.EnsuresTermCollector;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.visitors.TermSortCollector;
@@ -45,7 +45,7 @@ import org.key_project.util.collection.ImmutableList;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class EvolutionaryLoopInvariantGenerator implements LoopInvariantGenerator {
+public class EvolutionaryLoopInvariantGenerator implements ILoopInvariantGenerator {
 
     private final Services services;
     private Term[] sequentTerms;

@@ -6,6 +6,7 @@ import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.LoopInvariantFreeGenomeComparator;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.util.RandomAccessSet;
+import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
 import org.key_project.logic.Term;
 
 import java.util.*;
@@ -97,17 +98,19 @@ public class LoopInvariantFreeGenome {
             return;
         }
 
-        //TODO: Try different Fitness strategies: e.g. weighted VCs depending on how many generations they have been fulfilled
-        isSolution = true;
-        for (VerificationCondition vc : verificationConditions) {
-            if (!vc.checkFulfillment(this)) {
-                fitness += 1;
-                isSolution = false;
-                nonvalidVerificationConditions.add(vc);
-            } else {
-                validVerificationConditions.add(vc);
-            }
-        }
+        fitness = 1;
+
+//        //TODO: Try different Fitness strategies: e.g. weighted VCs depending on how many generations they have been fulfilled
+//        isSolution = true;
+//        for (VerificationCondition vc : verificationConditions) {
+//            if (!vc.checkFulfillment(this)) {
+//                fitness += 1;
+//                isSolution = false;
+//                nonvalidVerificationConditions.add(vc);
+//            } else {
+//                validVerificationConditions.add(vc);
+//            }
+//        }
 
         changedSinceCalc = false;
     }

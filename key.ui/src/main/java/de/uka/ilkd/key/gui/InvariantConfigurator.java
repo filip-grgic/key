@@ -29,8 +29,9 @@ import de.uka.ilkd.key.rule.LoopInvariantBuiltInRuleApp;
 import de.uka.ilkd.key.speclang.LoopSpecification;
 import de.uka.ilkd.key.util.InfFlowSpec;
 
-import de.uka.ilkd.key.util.loop_inv_generation.LoopInvariantGenerator;
+import de.uka.ilkd.key.util.loop_inv_generation.ILoopInvariantGenerator;
 import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.EvolutionaryLoopInvariantGenerator;
+import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.LoopInvariantGenerator;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
 import org.key_project.prover.rules.RuleAbortException;
@@ -592,7 +593,8 @@ public class InvariantConfigurator {
 
                 generateErrorText.setText("");
 
-                LoopInvariantGenerator generator = new EvolutionaryLoopInvariantGenerator(services);
+//                ILoopInvariantGenerator generator = new EvolutionaryLoopInvariantGenerator(services);
+                ILoopInvariantGenerator generator = new LoopInvariantGenerator(services);
                 Term generatedInvariant = generator.generateLoopInvariant();
 
                 if (generatedInvariant == null) {
