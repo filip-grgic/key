@@ -62,7 +62,12 @@ public class SMTInstance {
         Map<String, Integer> counterexample = new HashMap<>();
         if (!valid) {
             for (String counterexampleAssignment : counterexampleLine.split("\\) \\(")) {
-                String[] splitCounterexample = counterexampleAssignment.split(" ");
+                int firstSpace = counterexampleAssignment.indexOf(" ");
+                String[] splitCounterexample = new String[] {
+                        counterexampleAssignment.substring(0, firstSpace),
+                        counterexampleAssignment.substring(firstSpace + 1)
+                };
+                splitCounterexample[1] = splitCounterexample[1].replaceAll("[ ()]", "");
                 counterexample.put(splitCounterexample[0], Integer.parseInt(splitCounterexample[1]));
             }
         }

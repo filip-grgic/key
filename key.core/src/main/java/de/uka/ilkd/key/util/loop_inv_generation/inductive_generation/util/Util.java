@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 
 public class Util {
 
-    public static VerificationCondition[] generateVerificationConditions(SolverType solver, Services services) {
+    public static List<VerificationCondition> generateVerificationConditions(SolverType solver, Services services) {
         ProofEnvironment proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
         Services envServices = proofEnv.getServicesForEnvironment();
         TermBuilder envTermBuilder = envServices.getTermBuilder();
@@ -87,7 +87,7 @@ public class Util {
         ProofSearchInformation<Proof, Goal> pi = proofStarter.start();
 
         //Verification Conditions are the open goals that are still left
-        return convertGoalsToVerificationConditions(pi.getProof().openGoals(), loopSpecs, solver, services);
+        return convertGoalsToVerificationConditions(pi.getProof().openGoals(), loopSpecs, services);
     }
 
     private static void addPOTaclets(Proof sideProof, Services services) {
@@ -98,12 +98,12 @@ public class Util {
         );
     }
 
-    private static VerificationCondition[] convertGoalsToVerificationConditions(ImmutableList<Goal> goals, List<LoopSpecification> loopSpecs, SolverType solver, Services services) {
-        VerificationCondition[] result = new VerificationCondition[goals.size()];
+    private static List<VerificationCondition> convertGoalsToVerificationConditions(ImmutableList<Goal> goals, List<LoopSpecification> loopSpecs, Services services) {
+        List<VerificationCondition> result = new ArrayList<>();
 
         for (int i = 0; i < goals.size(); i++) {
             //TODO: Implement for multiple possible loop specifications
-            result[i] = new VerificationCondition(services, goals.get(i).sequent(), loopSpecs.getFirst(), solver);
+            result.add(new VerificationCondition(services, goals.get(i).sequent(), loopSpecs.getFirst()));
         }
 
         return result;

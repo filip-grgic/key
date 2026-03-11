@@ -7,9 +7,17 @@ import de.uka.ilkd.key.smt.solvertypes.SolverType;
 import de.uka.ilkd.key.smt.solvertypes.SolverTypeImplementation;
 import de.uka.ilkd.key.smt.solvertypes.SolverTypes;
 import de.uka.ilkd.key.util.loop_inv_generation.ILoopInvariantGenerator;
+import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure.CandidateGenerationTask;
+import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure.CandidateInvariant;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Util;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
 import org.key_project.logic.Term;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class LoopInvariantGenerator implements ILoopInvariantGenerator {
     private final Services services;
@@ -22,29 +30,47 @@ public class LoopInvariantGenerator implements ILoopInvariantGenerator {
                     && it.getName().equals("cvc5"))
             .findFirst().orElse(null);
 
+    private final BlockingQueue<CandidateGenerationTask> taskQueue = new LinkedBlockingQueue<>();
+
     public LoopInvariantGenerator(Services services) {
         this.services = services;
     }
 
     @Override
     public Term generateLoopInvariant() {
-        VerificationCondition[] verificationConditions = Util.generateVerificationConditions(CVC5_SOLVER, services);
+        List<VerificationCondition> verificationConditions = Util.generateVerificationConditions(CVC5_SOLVER, services);
+        AtomicBoolean isFinished = new AtomicBoolean(false);
+        AtomicReference<Term> loopInvariant = new AtomicReference<>(null);
 
-//        LocationVariable indexVar = services.getTermBuilder().locationVariable("index_1", services.getTypeConverter().getIntegerLDT().targetSort(), false);
-//        Term term = services.getTermBuilder().equals(services.getTermBuilder().var(indexVar), services.getTermBuilder().one());
-        LocationVariable aVar = services.getTermBuilder().locationVariable("a", services.getTypeConverter().getIntegerLDT().targetSort(), false);
-        LocationVariable bVar = services.getTermBuilder().locationVariable("b", services.getTypeConverter().getIntegerLDT().targetSort(), false);
-        LocationVariable cVar = services.getTermBuilder().locationVariable("c", services.getTypeConverter().getIntegerLDT().targetSort(), false);
-        LocationVariable indexVar = services.getTermBuilder().locationVariable("index_1", services.getTypeConverter().getIntegerLDT().targetSort(), false);
-        JTerm term1 = services.getTermBuilder().leq(services.getTermBuilder().var(indexVar), services.getTermBuilder().var(bVar));
-        JTerm mul = services.getTermBuilder().func(services.getTypeConverter().getIntegerLDT().getMul(), services.getTermBuilder().var(aVar), services.getTermBuilder().var(indexVar));
-        JTerm term2 = services.getTermBuilder().equals(services.getTermBuilder().var(cVar), mul);
-        Term term = services.getTermBuilder().and(term1, term2);
-        System.out.println(verificationConditions[0].checkFulfillment(term1));
-        System.out.println(verificationConditions[1].checkFulfillment(term1));
-        System.out.println(verificationConditions[2].checkFulfillment(term1));
+        // Create an ExecutorService with a cached thread pool
+        ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(1);
 
-        return null;
+        // Initialize the CandidateInvariant
+        CandidateInvariant initialCandidate = new CandidateInvariant(services);
+        taskQueue.add(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, initialCandidate, verificationConditions));
+        
+        while ((!taskQueue.isEmpty() || executorService.getActiveCount() > 0) && !isFinished.get()) {
+            if (taskQueue.peek() != null) {
+                executorService.submit(taskQueue.poll());
+            }
+
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(10, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+        }
+
+        return loopInvariant.get();
     }
 
 

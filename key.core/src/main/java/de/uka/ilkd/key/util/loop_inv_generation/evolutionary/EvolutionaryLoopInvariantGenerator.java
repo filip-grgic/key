@@ -205,7 +205,7 @@ public class EvolutionaryLoopInvariantGenerator implements ILoopInvariantGenerat
 
         for (int i = 0; i < goals.size(); i++) {
             //TODO: Implement for multiple possible loop specifications
-            result[i] = new VerificationCondition(services, goals.get(i).sequent(), loopSpecs.getFirst(), CVC5_SOLVER);
+            result[i] = new VerificationCondition(services, goals.get(i).sequent(), loopSpecs.getFirst());
         }
 
         return result;

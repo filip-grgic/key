@@ -88,7 +88,8 @@ public class SMTTranslator {
         // Base case: If the term is a constant or variable, append its SMT representation
         if (term.subs().isEmpty()) {
             problemBuilder.append(term.op().name());
-            if (!declarations.containsKey(term.op().name().toString()) && !(term.op() instanceof QuantifiableVariable)) {
+            if (!declarations.containsKey(term.op().name().toString()) && !(term.op() instanceof QuantifiableVariable) &&
+                !(term.equals(services.getTermBuilder().tt())) && !(term.equals(services.getTermBuilder().ff()))) {
                 declarations.put(term.op().name().toString(),
                         "(declare-fun " + term.op().name() + " () " + translateSort(term.sort()) + ")\n");
             }

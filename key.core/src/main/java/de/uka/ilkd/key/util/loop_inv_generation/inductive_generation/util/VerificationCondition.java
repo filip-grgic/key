@@ -9,13 +9,9 @@ import de.uka.ilkd.key.proof.calculus.JavaDLSequentKit;
 import de.uka.ilkd.key.settings.DefaultSMTSettings;
 import de.uka.ilkd.key.settings.NewSMTTranslationSettings;
 import de.uka.ilkd.key.settings.ProofIndependentSMTSettings;
-import de.uka.ilkd.key.smt.SMTProblem;
 import de.uka.ilkd.key.smt.SMTSettings;
-import de.uka.ilkd.key.smt.SMTSolverResult;
 import de.uka.ilkd.key.smt.SolverLauncher;
-import de.uka.ilkd.key.smt.solvertypes.SolverType;
 import de.uka.ilkd.key.speclang.LoopSpecification;
-import de.uka.ilkd.key.util.loop_inv_generation.evolutionary.structures.LoopInvariantFreeGenome;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
 import org.key_project.logic.op.Function;
@@ -24,8 +20,8 @@ import org.key_project.logic.sort.Sort;
 import org.key_project.prover.sequent.Semisequent;
 import org.key_project.prover.sequent.Sequent;
 import org.key_project.prover.sequent.SequentFormula;
-import org.key_project.prover.sequent.SequentKit;
 import org.key_project.util.collection.ImmutableList;
+import org.key_project.util.collection.Pair;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,14 +38,20 @@ public class VerificationCondition {
 
     private final VCKind vckind;
 
-    private final SolverType smtSolver;
+    private List<Tuple<Term,Term>> antecedentRelations;
 
-    public VerificationCondition(Services services, Sequent sequent, LoopSpecification loopSpecification, SolverType smtSolver) {
+    private List<Tuple<Term,Term>> succedentRelations;
+
+    private List<Term> antecedentTerms = new ArrayList<>();
+
+    private List<Term> succedentTerms = new ArrayList<>();
+
+
+    public VerificationCondition(Services services, Sequent sequent, LoopSpecification loopSpecification) {
         this.services = services;
         this.sequent = prepareSequent(sequent);
 //        this.sequent = sequent;
         this.function = loopSpecification.getInvariant(services);
-        this.smtSolver = smtSolver;
         TermBuilder termBuilder = services.getTermBuilder();
 
         if (!(function.op() instanceof Function)) {
@@ -68,29 +70,56 @@ public class VerificationCondition {
             quantifiedInvariant = termBuilder.replaceVariable(quantifiedInvariant, par.op().name(), quantVar);
         }
 
-        boolean invInAnte = sequent.antecedent().toString().contains(function.op().name().toString());
-        boolean invInSucc = sequent.succedent().toString().contains(function.op().name().toString());
+        boolean invInAnte = this.sequent.antecedent().toString().contains(function.op().name().toString());
+        boolean invInSucc = this.sequent.succedent().toString().contains(function.op().name().toString());
+
+        antecedentRelations = collectBinaryRelations(this.sequent.antecedent());
+        succedentRelations = collectBinaryRelations(this.sequent.succedent());
+
+        this.sequent.antecedent().forEach(sf -> antecedentTerms.add(sf.formula()));
+        this.sequent.succedent().forEach(sf -> succedentTerms.add(sf.formula()));
 
         if (invInAnte && invInSucc) {
             vckind = VCKind.CONSECUTION;
         } else if (invInAnte) {
-            vckind = VCKind.INITIATION;
-        } else if (invInSucc) {
             vckind = VCKind.COMPLETION;
+        } else if (invInSucc) {
+            vckind = VCKind.INITIATION;
         } else {
             vckind = VCKind.EXTERNAL;
         }
 
     }
 
+    public List<Tuple<Term, Term>> getAntecedentRelations() {
+        return antecedentRelations;
+    }
+
+    public List<Tuple<Term, Term>> getSuccedentRelations() {
+        return succedentRelations;
+    }
+
+    public List<Term> getAntecedentTerms() {
+        return antecedentTerms;
+    }
+
+    public List<Term> getSuccedentTerms() {
+        return succedentTerms;
+    }
+
+    private List<Tuple<Term,Term>> collectBinaryRelations(Semisequent semisequent) {
+        List<Tuple<Term,Term>> result = new ArrayList<>();
+
+        for (SequentFormula sequentFormula : semisequent.asList()) {
+            BinaryTermCollector btc = new BinaryTermCollector();
+            sequentFormula.formula().execPostOrder(btc);
+            result.addAll(btc.result());
+        }
+
+        return result;
+    }
+
     public SMTResult checkFulfillment(Term term) {
-
-        //We want to ignore invariant candidates that are trivially true or false (e.g. by containing contradicting terms)
-        //or that contain the variable representing the method's return value, as the invariant cannot contain it
-//        if (checkForReturnValue(genome) || checkForTriviality(genome.translateToTerm())) {
-//            return false;
-//        }
-
 //        Term preparedCandidate = createQuantification(term);
 //        Sequent resultingSequent = sequent.addFormula(new SequentFormula(preparedCandidate), true, true)
 //                .sequent();
@@ -99,49 +128,7 @@ public class VerificationCondition {
         SMTInstance smtInstance = new SMTInstance(resultingSequent, services);
         smtInstance.processSMTProblem();
         return smtInstance.result();
-
-//        SMTProblem smtProblem = new SMTProblem(resultingSequent, services);
-//
-//        SolverLauncher launcher = getSolverLauncher();
-//        launcher.launch(smtProblem, services, smtSolver);
-//
-//        return smtProblem.getFinalResult().isValid() == SMTSolverResult.ThreeValuedTruth.VALID;
     }
-//
-//    private boolean checkForTriviality(Term preparedCandidate) {
-//        SolverLauncher launcher = getSolverLauncher();
-//        TermBuilder termBuilder = services.getTermBuilder();
-//
-//        ImmutableList<SequentFormula> falseTrivialAnte = ImmutableList.of(new SequentFormula(preparedCandidate));
-//        Sequent sequent = JavaDLSequentKit.createAnteSequent(falseTrivialAnte);
-//
-//        SMTProblem checkForFalse = new SMTProblem(sequent, services);
-//        launcher.launch(checkForFalse, services, smtSolver);
-//        boolean triviallyFalse = checkForFalse.getFinalResult().isValid() == SMTSolverResult.ThreeValuedTruth.VALID;
-//
-//        if (triviallyFalse) {
-//            return true;
-//        }
-//
-//        Term negatedCandidate = termBuilder.not((JTerm) preparedCandidate);
-//        ImmutableList<SequentFormula> trueTrivialAnte = ImmutableList.of(new SequentFormula(negatedCandidate));
-//        sequent = JavaDLSequentKit.createAnteSequent(trueTrivialAnte);
-//
-//        SMTProblem checkForTrue = new SMTProblem(sequent, services);
-//        getSolverLauncher().launch(checkForTrue, services, smtSolver);
-//
-//        return checkForTrue.getFinalResult().isValid() == SMTSolverResult.ThreeValuedTruth.VALID;
-//    }
-//
-//    private boolean checkForReturnValue(LoopInvariantFreeGenome genome) {
-//        for (Term term: genome.getContainingTerms()) {
-//            if (term.op().name().toString().startsWith("result_")) {
-//                return true;
-//            }
-//        }
-//
-//        return false;
-//    }
 
     private Sequent prepareSequent(Sequent sequent) {
         ImmutableList<SequentFormula> newAntecedent = removeForbiddenFromSemiSequent(sequent.antecedent());
@@ -185,22 +172,6 @@ public class VerificationCondition {
         }
 
         return false;
-    }
-
-    private SolverLauncher getSolverLauncher() {
-        ProofIndependentSMTSettings piSettings = ProofIndependentSMTSettings.getDefaultSettingsData();
-        piSettings.setStoreSMTTranslationToFile(true);
-        piSettings.setShowResultsAfterExecution(true);
-        piSettings.setPathForSMTTranslation("/home/filip/smttranslations");
-
-        SMTSettings smtSettings = new DefaultSMTSettings(
-                services.getProof().getSettings().getSMTSettings(),
-                piSettings,
-                new NewSMTTranslationSettings(),
-                services.getProof()
-        );
-
-        return new SolverLauncher(smtSettings);
     }
 
     private Sequent insertCandidateIntoSequent(Term invariantCandidate) {
