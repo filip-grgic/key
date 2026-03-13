@@ -139,9 +139,11 @@ public class VerificationCondition {
 
     private ImmutableList<SequentFormula> removeForbiddenFromSemiSequent(Semisequent semisequent) {
         List<SequentFormula> newSemisequent = new ArrayList<>();
+        List<SequentFormula> thrownOut = new ArrayList<>();
 
         for (SequentFormula sequentFormula : semisequent.asList()) {
             if (formulaContainsForbidden(sequentFormula.formula())) {
+                thrownOut.add(sequentFormula);
                 continue;
             }
 
@@ -159,13 +161,17 @@ public class VerificationCondition {
             return true;
         } else if (term.op().name().toString().equals("self")) {
             return true;
-        } else if (term.sort().name().toString().equals("Field")) {
+        } else if (term.sort().name().toString().equals("Field") && !term.op().name().toString().equals("arr")) {
             return true;
         } else if (term.sort().name().toString().equals("java.lang.Object")) {
             return true;
         }
 
-        for (Term sub : term.subs()) {
+        for (int i = 0; i < term.subs().size(); i++) {
+            if (term.op().name().toString().endsWith("::select") && i == 0) {
+                continue;
+            }
+            Term sub = term.sub(i);
             if (formulaContainsForbidden(sub)) {
                 return true;
             }

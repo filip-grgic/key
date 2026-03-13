@@ -11,8 +11,8 @@ import java.util.*;
 
 public class CandidateInvariant {
 
-    private Map<Term,Term> vcSourcedConjuncts;
-    private Map<Tuple<Term,Term>,Term> relationSourcedConjuncts;
+    private final Map<Term,Conjunct> vcSourcedConjuncts;
+    private final Map<Tuple<Term,Term>,Term> relationSourcedConjuncts;
     private final Services services;
     private List<CandidateInvariant> history;
 
@@ -20,7 +20,7 @@ public class CandidateInvariant {
         this(new HashMap<>(), new HashMap<>(), services);
     }
 
-    public CandidateInvariant(Map<Term,Term> vcSourcedConjuncts, Map<Tuple<Term,Term>,Term> relationSourcedConjuncts, Services services) {
+    public CandidateInvariant(Map<Term,Conjunct> vcSourcedConjuncts, Map<Tuple<Term,Term>,Term> relationSourcedConjuncts, Services services) {
         this.vcSourcedConjuncts = vcSourcedConjuncts;
         this.relationSourcedConjuncts = relationSourcedConjuncts;
         this.services = services;
@@ -42,7 +42,7 @@ public class CandidateInvariant {
 
         for (Term key : vcSourcedConjuncts.keySet()) {
             if (result == null) {
-                result = vcSourcedConjuncts.get(key);
+                result = vcSourcedConjuncts.get(key).translateToTerm();
             } else {
                 result = services.getTermBuilder().and((JTerm) result, (JTerm) vcSourcedConjuncts.get(key));
             }
@@ -59,7 +59,7 @@ public class CandidateInvariant {
         return result;
     }
 
-    public void addConjunct(Term source, Term conjunct) {
+    public void addConjunct(Term source, Conjunct conjunct) {
         vcSourcedConjuncts.put(source, conjunct);
     }
 
@@ -80,12 +80,6 @@ public class CandidateInvariant {
     }
 
     public boolean repeatingHistory() {
-//        for (CandidateInvariant candidateInvariant : history) {
-//            if (candidateInvariant.equals(this) || candidateInvariant.toString().equals(this.toString())) {
-//                return true;
-//            }
-//        }
-//        return false;
         return history.contains(this);
     }
 
@@ -135,7 +129,7 @@ public class CandidateInvariant {
     }
 
     public void replaceTerm(Term oldTerm, Term newTerm) {
-        vcSourcedConjuncts.replaceAll((k, v) -> services.getTermBuilder().replaceContainingTerm(vcSourcedConjuncts.get(k), oldTerm, newTerm));
+        vcSourcedConjuncts.replaceAll((k, v) -> vcSourcedConjuncts.get(k).replace(oldTerm, newTerm));
         relationSourcedConjuncts.replaceAll((k, v) -> services.getTermBuilder().replaceContainingTerm(relationSourcedConjuncts.get(k), oldTerm, newTerm));
     }
 
@@ -154,7 +148,7 @@ public class CandidateInvariant {
 
     private List<Term> conjuncts() {
         List<Term> result = new ArrayList<>();
-        result.addAll(vcSourcedConjuncts.values());
+        result.addAll(vcSourcedConjuncts.values().stream().map(Conjunct::translateToTerm).toList());
         result.addAll(relationSourcedConjuncts.values());
         return result;
     }

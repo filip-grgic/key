@@ -7,9 +7,7 @@ import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.SMTRes
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Tuple;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
 import org.key_project.logic.Term;
-import org.key_project.util.collection.Pair;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -168,7 +166,7 @@ public class CandidateGenerationTask implements Runnable {
 
     private void createInsertedTask(Term source, Term tb) throws InterruptedException {
         CandidateInvariant extendedCandidate = new CandidateInvariant(candidateInvariant);
-        extendedCandidate.addConjunct(source, tb);
+        extendedCandidate.addConjunct(source, Conjunct.create(tb, services));
         createExtendedTask(extendedCandidate);
     }
 
