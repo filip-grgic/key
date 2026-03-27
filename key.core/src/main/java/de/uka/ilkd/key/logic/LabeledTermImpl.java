@@ -155,15 +155,15 @@ public class LabeledTermImpl extends TermImpl {
     public String toString() {
         StringBuilder result = new StringBuilder(super.toString());
 
-        String labelsStr = labels.stream()
-                // .filter(TermLabel::isProofRelevant)
-                .map(TermLabel::toString).collect(Collectors.joining(", "));
-
-        if (!labelsStr.isEmpty()) {
-            result.append("<<");
-            result.append(labelsStr);
-            result.append(">>");
-        }
+//        String labelsStr = labels.stream()
+//                // .filter(TermLabel::isProofRelevant)
+//                .map(TermLabel::toString).collect(Collectors.joining(", "));
+//
+//        if (!labelsStr.isEmpty()) {
+//            result.append("<<");
+//            result.append(labelsStr);
+//            result.append(">>");
+//        }
 
         return result.toString();
     }

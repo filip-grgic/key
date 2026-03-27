@@ -75,6 +75,7 @@ public class Util {
 
         Proof sideProof = proofStarter.getProof();
         Services sideServices = sideProof.getServices();
+
         // Necessary as the class invariant axiom otherwise wouldn't be usable
         addPOTaclets(sideProof, services);
 
@@ -164,6 +165,7 @@ public class Util {
     private static void prepareProof(ProofStarter proofStarter, Proof sideProof, Services services) {
         JavaCardDLStrategyFactory strategyFactory = new JavaCardDLStrategyFactory();
         StrategyProperties properties = services.getProof().getSettings().getStrategySettings().getActiveStrategyProperties();
+        //TODO: Using here LOOP_SCOPE_INV_TACLET for VC Generation but Invariant Configurator uses LOOP_INVARIANT, unable to generate VCs with LOOP_INVARIANT
         properties.setProperty(StrategyProperties.LOOP_OPTIONS_KEY, StrategyProperties.LOOP_SCOPE_INV_TACLET);
         proofStarter.setStrategy(strategyFactory.create(sideProof, properties));
         proofStarter.setMaxRuleApplications(10000);

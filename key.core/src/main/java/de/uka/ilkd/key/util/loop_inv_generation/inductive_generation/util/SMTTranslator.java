@@ -5,10 +5,8 @@ import de.uka.ilkd.key.ldt.IntegerLDT;
 import de.uka.ilkd.key.ldt.JavaDLTheory;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
-import de.uka.ilkd.key.logic.op.Equality;
-import de.uka.ilkd.key.logic.op.Junctor;
-import de.uka.ilkd.key.logic.op.LogicVariable;
-import de.uka.ilkd.key.logic.op.Quantifier;
+import de.uka.ilkd.key.logic.op.*;
+import de.uka.ilkd.key.logic.sort.ArraySort;
 import org.key_project.logic.Term;
 import org.key_project.logic.op.QuantifiableVariable;
 import org.key_project.logic.sort.Sort;
@@ -24,6 +22,9 @@ public class SMTTranslator {
     private final IntegerLDT integerLDT;
     private final TermBuilder termBuilder;
 
+    private final static String LENGTH_FUNCTION = "length";
+    private final static String ARR_FUNCTION = "arr";
+
     public SMTTranslator(Services services) {
         this.services = services;
         this.integerLDT = services.getTypeConverter().getIntegerLDT();
@@ -37,6 +38,8 @@ public class SMTTranslator {
 
         Map<String, String> declarations = new HashMap<>(); 
         StringBuilder problemBuilder = new StringBuilder();
+
+        addInitDeclarations(declarations);
 
 
         // Translate antecedent
@@ -73,6 +76,11 @@ public class SMTTranslator {
         return result.toString();
     }
 
+    private void addInitDeclarations(Map<String, String> declarations) {
+        // Add declaration for the length of array function
+        declarations.put(LENGTH_FUNCTION, String.format("(declare-fun %s ((Array Int Int)) Int)\n", LENGTH_FUNCTION));
+    }
+
     public void translateAssertion(Term term, Map<String, String> declarations, StringBuilder problemBuilder) {
         if (term == null) {
             throw new IllegalArgumentException("Term cannot be null");
@@ -88,10 +96,17 @@ public class SMTTranslator {
         // Base case: If the term is a constant or variable, append its SMT representation
         if (term.subs().isEmpty()) {
             problemBuilder.append(term.op().name());
+
             if (!declarations.containsKey(term.op().name().toString()) && !(term.op() instanceof QuantifiableVariable) &&
                 !(term.equals(services.getTermBuilder().tt())) && !(term.equals(services.getTermBuilder().ff()))) {
+
+                String sort = translateSort(term.sort());
+                if (term.sort() instanceof ArraySort) {
+                    sort = "(" + sort + ")";
+                }
+
                 declarations.put(term.op().name().toString(),
-                        "(declare-fun " + term.op().name() + " () " + translateSort(term.sort()) + ")\n");
+                        "(declare-fun " + term.op().name() + " () " + sort + ")\n");
             }
         }
 
@@ -115,7 +130,7 @@ public class SMTTranslator {
             binaryTranslate(term.sub(0), term.sub(1), "-", declarations, problemBuilder);
         } else if (term.op().equals(integerLDT.getMul())) {
             binaryTranslate(term.sub(0), term.sub(1), "*", declarations, problemBuilder);
-        } else if (term.op().equals(integerLDT.getDiv())) {
+        } else if (term.op().equals(integerLDT.getJDivision())) {
             binaryTranslate(term.sub(0), term.sub(1), "div", declarations, problemBuilder);
         }
 
@@ -132,10 +147,34 @@ public class SMTTranslator {
 
         // Quantifiers
         else if (term.op().equals(Quantifier.ALL)) {
-            var boundVar = term.boundVars().get(0);
+            QuantifiableVariable boundVar = term.boundVars().get(0);
             problemBuilder.append("(forall ((").append(boundVar.name()).append(" ").append(translateSort(boundVar.sort())).append(")) ");
             recursiveTranslate(term.sub(0), declarations, problemBuilder);
             problemBuilder.append(")");
+        }
+
+        else if (term.op().equals(Quantifier.EX)) {
+            QuantifiableVariable boundVar = term.boundVars().get(0);
+            problemBuilder.append("(forall ((").append(boundVar.name()).append(" ").append(translateSort(boundVar.sort())).append(")) ");
+            recursiveTranslate(term.sub(0), declarations, problemBuilder);
+            problemBuilder.append(")");
+        }
+
+        else if (term.op().name().toString().equals(LENGTH_FUNCTION)) {
+            unaryTranslate(term.sub(0), LENGTH_FUNCTION, declarations, problemBuilder);
+        }
+
+        else if (term.op().name().toString().equals(ARR_FUNCTION)) {
+            recursiveTranslate(term.sub(0), declarations, problemBuilder);
+        }
+
+        else if (term.op() instanceof SortDependingFunction sdf) {
+            String functionName = sdf.getKind().toString();
+            if (functionName.equals("select")) {
+                binaryTranslate(term.sub(1), term.sub(2), "select", declarations, problemBuilder);
+            } else {
+                throw new IllegalArgumentException("Unsupported operator: " + term);
+            }
         }
 
         // Uninterpreted Functions
@@ -188,7 +227,13 @@ public class SMTTranslator {
     private String translateSort(Sort sort) {
         if (sort.equals(integerLDT.targetSort())) {
             return "Int";
-        } else {
+        }
+
+        else if (sort instanceof ArraySort arraySort) {
+            return "Array Int " + translateSort(arraySort.elementSort());
+        }
+
+        else {
             throw new IllegalArgumentException("Unsupported sort: " + sort);
         }
     }

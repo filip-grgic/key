@@ -27,7 +27,7 @@ public abstract class Conjunct {
         term.execPostOrder(qc);
 
         if (qc.containsQuantifier()) {
-            return null;
+            return new BoundConjunct(term, services);
         } else {
             return new FreeConjunct(term, services);
         }

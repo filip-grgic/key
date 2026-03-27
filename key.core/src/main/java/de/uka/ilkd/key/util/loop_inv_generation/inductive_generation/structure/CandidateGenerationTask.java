@@ -23,14 +23,16 @@ public class CandidateGenerationTask implements Runnable {
     private final AtomicBoolean isFinished;
     private final AtomicReference<Term> loopInvariant;
     private final BlockingQueue<CandidateGenerationTask> taskQueue;
+    private final Set<CandidateInvariant> traversedCandidates;
 
-    public CandidateGenerationTask(Services services, AtomicBoolean isFinished, AtomicReference<Term> loopInvariant, BlockingQueue<CandidateGenerationTask> taskQueue, CandidateInvariant candidateInvariant, List<VerificationCondition> verificationConditions) {
+    public CandidateGenerationTask(Services services, AtomicBoolean isFinished, AtomicReference<Term> loopInvariant, BlockingQueue<CandidateGenerationTask> taskQueue, Set<CandidateInvariant> traversedCandidates, CandidateInvariant candidateInvariant, List<VerificationCondition> verificationConditions) {
         this.services = services;
         this.candidateInvariant = candidateInvariant;
         this.verificationConditions = verificationConditions;
         this.isFinished = isFinished;
         this.loopInvariant = loopInvariant;
         this.taskQueue = taskQueue;
+        this.traversedCandidates = traversedCandidates;
     }
 
     @Override
@@ -39,6 +41,13 @@ public class CandidateGenerationTask implements Runnable {
             if (candidateInvariant.repeatingHistory()) {
                 return;
             }
+
+            if (traversedCandidates.contains(candidateInvariant)) {
+                return;
+            } else {
+                traversedCandidates.add(candidateInvariant);
+            }
+
             candidateInvariant.printHistory();
             System.out.println("Handling: " + candidateInvariant);
 
@@ -74,12 +83,13 @@ public class CandidateGenerationTask implements Runnable {
     }
 
     private void handleInitiationCounterexample(VerificationCondition vc, SMTResult result) throws InterruptedException {
+        System.err.println("Failed Initiation");
         throw new InterruptedException();
 //        insertRelatedTerms(vc.getAntecedentRelations(), result);
     }
 
     private void handleConsecutionCounterexample(VerificationCondition vc, SMTResult result) throws InterruptedException {
-        replaceRelatedTerms(vc);
+//        replaceRelatedTerms(vc);
         insertRelatedTerms(vc.getAntecedentRelations(), result);
         insertRelatedTerms(vc.getSuccedentRelations(), result);
     }
@@ -100,9 +110,9 @@ public class CandidateGenerationTask implements Runnable {
             }
         }
 
-        replaceRelatedTerms(vc);
-        insertRelatedTerms(vc.getSuccedentRelations(), result);
+//        replaceRelatedTerms(vc);
         insertRelatedTerms(vc.getAntecedentRelations(), result);
+        insertRelatedTerms(vc.getSuccedentRelations(), result);
     }
 
     private void replaceRelatedTerms(VerificationCondition vc) throws InterruptedException {
@@ -131,30 +141,47 @@ public class CandidateGenerationTask implements Runnable {
             String firstName = first.op().name().toString();
             String secondName = second.op().name().toString();
 
-            Map<String, Integer> counterexample = result.getCounterexample();
+            Map<String, Integer> counterexample = result.getCounterexampleConstants();
 
             if (!counterexample.containsKey(firstName) || !counterexample.containsKey(secondName)) {
-                continue;
-            }
-
-            int firstCEValue = counterexample.get(firstName);
-            int secondCEValue = counterexample.get(secondName);
-
-            TermBuilder tb = services.getTermBuilder();
-
-            if (firstCEValue == secondCEValue) {
-                createInsertedTask(relation, tb.equals((JTerm) first, (JTerm) second));
-                createInsertedTask(relation, tb.geq((JTerm) first, (JTerm) second));
-                createInsertedTask(relation, tb.leq((JTerm) first, (JTerm) second));
-            } else if (firstCEValue < secondCEValue) {
-                createInsertedTask(relation, tb.leq((JTerm) first, (JTerm) second));
-                createInsertedTask(relation, tb.lt((JTerm) first, (JTerm) second));
-                createInsertedTask(relation, tb.not(tb.equals((JTerm) first, (JTerm) second)));
+                insertNaively(relation, (JTerm) first, (JTerm) second);
             } else {
-                createInsertedTask(relation, tb.geq((JTerm) first, (JTerm) second));
-                createInsertedTask(relation, tb.gt((JTerm) first, (JTerm) second));
-                createInsertedTask(relation, tb.not(tb.equals((JTerm) first, (JTerm) second)));
+                insertGuidedCE(relation, counterexample, (JTerm) first, (JTerm) second);
             }
+        }
+    }
+
+    private void insertNaively(Tuple<Term, Term> relation, JTerm first, JTerm second) throws InterruptedException {
+        TermBuilder tb = services.getTermBuilder();
+
+        createInsertedTask(relation, tb.equals(first, second));
+        createInsertedTask(relation, tb.geq(first, second));
+        createInsertedTask(relation, tb.leq(first, second));
+        createInsertedTask(relation, tb.gt(first, second));
+        createInsertedTask(relation, tb.lt(first, second));
+    }
+
+    private void insertGuidedCE(Tuple<Term, Term> relation, Map<String, Integer> counterexample, JTerm first, JTerm second) throws InterruptedException {
+        String firstName = first.op().name().toString();
+        String secondName = second.op().name().toString();
+
+        int firstCEValue = counterexample.get(firstName);
+        int secondCEValue = counterexample.get(secondName);
+
+        TermBuilder tb = services.getTermBuilder();
+
+        if (firstCEValue == secondCEValue) {
+            createInsertedTask(relation, tb.equals(first, second));
+            createInsertedTask(relation, tb.geq(first, second));
+            createInsertedTask(relation, tb.leq(first, second));
+        } else if (firstCEValue < secondCEValue) {
+            createInsertedTask(relation, tb.leq(first, second));
+            createInsertedTask(relation, tb.lt(first, second));
+            createInsertedTask(relation, tb.not(tb.equals(first, second)));
+        } else {
+            createInsertedTask(relation, tb.geq(first, second));
+            createInsertedTask(relation, tb.gt(first, second));
+            createInsertedTask(relation, tb.not(tb.equals(first, second)));
         }
     }
 
@@ -171,7 +198,7 @@ public class CandidateGenerationTask implements Runnable {
     }
 
     private void createExtendedTask(CandidateInvariant extendedCandidate) throws InterruptedException {
-        taskQueue.put(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, extendedCandidate, verificationConditions));
+        taskQueue.put(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, traversedCandidates, extendedCandidate, verificationConditions));
     }
 
     @Override

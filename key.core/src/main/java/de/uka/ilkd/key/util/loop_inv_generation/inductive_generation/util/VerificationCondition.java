@@ -4,13 +4,19 @@ import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.TermFactory;
+import de.uka.ilkd.key.logic.op.Equality;
 import de.uka.ilkd.key.logic.op.LogicVariable;
+import de.uka.ilkd.key.logic.sort.NullSort;
 import de.uka.ilkd.key.proof.calculus.JavaDLSequentKit;
 import de.uka.ilkd.key.settings.DefaultSMTSettings;
 import de.uka.ilkd.key.settings.NewSMTTranslationSettings;
 import de.uka.ilkd.key.settings.ProofIndependentSMTSettings;
+import de.uka.ilkd.key.smt.SMTProblem;
 import de.uka.ilkd.key.smt.SMTSettings;
 import de.uka.ilkd.key.smt.SolverLauncher;
+import de.uka.ilkd.key.smt.solvertypes.SolverType;
+import de.uka.ilkd.key.smt.solvertypes.SolverTypeImplementation;
+import de.uka.ilkd.key.smt.solvertypes.SolverTypes;
 import de.uka.ilkd.key.speclang.LoopSpecification;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
@@ -21,7 +27,6 @@ import org.key_project.prover.sequent.Semisequent;
 import org.key_project.prover.sequent.Sequent;
 import org.key_project.prover.sequent.SequentFormula;
 import org.key_project.util.collection.ImmutableList;
-import org.key_project.util.collection.Pair;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,19 +43,18 @@ public class VerificationCondition {
 
     private final VCKind vckind;
 
-    private List<Tuple<Term,Term>> antecedentRelations;
+    private final List<Tuple<Term,Term>> antecedentRelations;
 
-    private List<Tuple<Term,Term>> succedentRelations;
+    private final List<Tuple<Term,Term>> succedentRelations;
 
-    private List<Term> antecedentTerms = new ArrayList<>();
+    private final List<Term> antecedentTerms = new ArrayList<>();
 
-    private List<Term> succedentTerms = new ArrayList<>();
+    private final List<Term> succedentTerms = new ArrayList<>();
 
 
     public VerificationCondition(Services services, Sequent sequent, LoopSpecification loopSpecification) {
         this.services = services;
         this.sequent = prepareSequent(sequent);
-//        this.sequent = sequent;
         this.function = loopSpecification.getInvariant(services);
         TermBuilder termBuilder = services.getTermBuilder();
 
@@ -111,7 +115,7 @@ public class VerificationCondition {
         List<Tuple<Term,Term>> result = new ArrayList<>();
 
         for (SequentFormula sequentFormula : semisequent.asList()) {
-            BinaryTermCollector btc = new BinaryTermCollector();
+            FreeBinaryTermCollector btc = new FreeBinaryTermCollector();
             sequentFormula.formula().execPostOrder(btc);
             result.addAll(btc.result());
         }
@@ -164,6 +168,9 @@ public class VerificationCondition {
         } else if (term.sort().name().toString().equals("Field") && !term.op().name().toString().equals("arr")) {
             return true;
         } else if (term.sort().name().toString().equals("java.lang.Object")) {
+            return true;
+        } else if (term.op() instanceof Equality &&
+                (term.sub(0).sort() instanceof NullSort || term.sub(1).sort() instanceof NullSort)) {
             return true;
         }
 

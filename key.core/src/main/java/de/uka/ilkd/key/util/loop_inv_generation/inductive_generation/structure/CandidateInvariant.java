@@ -44,7 +44,7 @@ public class CandidateInvariant {
             if (result == null) {
                 result = vcSourcedConjuncts.get(key).translateToTerm();
             } else {
-                result = services.getTermBuilder().and((JTerm) result, (JTerm) vcSourcedConjuncts.get(key));
+                result = services.getTermBuilder().and((JTerm) result, (JTerm) vcSourcedConjuncts.get(key).translateToTerm());
             }
         }
 

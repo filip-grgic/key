@@ -3,10 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-only */
 package de.uka.ilkd.key.logic;
 
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.java.TypeConverter;
@@ -2213,6 +2210,12 @@ public class TermBuilder {
         for (int i = 0; i < oldSubs.size(); i++) {
             //TODO: Handle subs being null
             newSubs[i] = (JTerm) replaceContainingTerm(oldSubs.get(i), oldTerm, newTerm);
+        }
+
+        if (term.op().equals(Quantifier.ALL)) {
+            return all(term.boundVars().stream().map((qv -> (QuantifiableVariable) qv)).toList(), newSubs[0]);
+        } else if (term.op().equals(Quantifier.EX)) {
+            return ex(term.boundVars().stream().map((qv -> (QuantifiableVariable) qv)).toList(), newSubs[0]);
         }
 
         return services.getTermFactory().createTerm(term.op(), newSubs);
