@@ -32,7 +32,7 @@ public class LoopInvariantGenerator implements ILoopInvariantGenerator {
                     && it.getName().equals("cvc5"))
             .findFirst().orElse(null);
 
-    private final BlockingQueue<CandidateGenerationTask> taskQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<CandidateInvariant> taskQueue = new LinkedBlockingQueue<>();
 
     public LoopInvariantGenerator(Services services) {
         this.services = services;
@@ -41,35 +41,35 @@ public class LoopInvariantGenerator implements ILoopInvariantGenerator {
     @Override
     public Term generateLoopInvariant() {
         List<VerificationCondition> verificationConditions = Util.generateVerificationConditions(CVC5_SOLVER, services);
+        Set<LocationVariable> changingVariables = Util.collectChangingVariables(services);
         AtomicBoolean isFinished = new AtomicBoolean(false);
         AtomicReference<Term> loopInvariant = new AtomicReference<>(null);
         Set<CandidateInvariant> traversedCandidates = ConcurrentHashMap.newKeySet();
 
-        CandidateInvariant testCandidate = generateTestCandidate(verificationConditions);
-        taskQueue.add(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, traversedCandidates, testCandidate, verificationConditions));
+        int threadCount = 5;
 
         // Create an ExecutorService with a cached thread pool
-        ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(4);
+        ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(threadCount);
 
         // Initialize the CandidateInvariant
-//        CandidateInvariant initialCandidate = new CandidateInvariant(services);
+//        taskQueue.add(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, traversedCandidates, testCandidate, verificationConditions));
+        CandidateInvariant initialCandidate = new CandidateInvariant(services);
+//        CandidateInvariant initialCandidate = generateTestCandidate(verificationConditions);
 //        taskQueue.add(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, traversedCandidates, initialCandidate, verificationConditions));
-
-        int i = 0;
-        while ((!taskQueue.isEmpty() || executorService.getActiveCount() > 0) && !isFinished.get()) {
-            while (taskQueue.peek() != null) {
-                executorService.submit(taskQueue.poll());
+        try {
+            taskQueue.put(initialCandidate);
+            for (int i = 0; i < threadCount; i++) {
+                executorService.submit(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, traversedCandidates, verificationConditions, changingVariables, i+1));
             }
+        } catch (InterruptedException e) {
+            return loopInvariant.get();
+        }
 
+        while ((!taskQueue.isEmpty() || executorService.getActiveCount() > 0) && !isFinished.get()) {
             try {
-                Thread.sleep(100);
-
-                if (i == 0) {
-                    System.err.println("Active threads: " + executorService.getActiveCount());
-                    System.err.println("Queue size: " + taskQueue.size());
-                }
-
-                i = (i + 1) % 10;
+                Thread.sleep(1000);
+                System.err.println("Active threads: " + executorService.getActiveCount());
+                System.err.println("Queue size: " + taskQueue.size());
 
             } catch (InterruptedException e) {
                 e.printStackTrace();

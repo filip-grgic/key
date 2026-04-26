@@ -22,6 +22,12 @@ public class VariableBounds {
         this.upperBounds = new HashSet<>();
     }
 
+    public VariableBounds(VariableBounds variableBounds) {
+        this.services = variableBounds.services;
+        this.lowerBounds = new HashSet<>(variableBounds.lowerBounds);
+        this.upperBounds = new HashSet<>(variableBounds.upperBounds);
+    }
+
     public Set<Term> getLowerBounds() {
         return lowerBounds;
     }
@@ -38,6 +44,46 @@ public class VariableBounds {
     public void addUpperBound(Term bound) {
         checkInteger(bound, "Upper bound must be an integer");
         upperBounds.add(bound);
+    }
+
+    public void addExclusiveLowerBound(Term bound) {
+        checkInteger(bound, "Lower bound must be an integer");
+        bound = services.getTermBuilder().add((JTerm) bound, services.getTermBuilder().one());
+        lowerBounds.add(bound);
+    }
+
+    public void addExclusiveUpperBound(Term bound) {
+        checkInteger(bound, "Upper bound must be an integer");
+        bound = services.getTermBuilder().sub((JTerm) bound, services.getTermBuilder().one());
+        upperBounds.add(bound);
+    }
+
+    public void removeLowerBound() {
+        this.lowerBounds.clear();
+    }
+
+    public void removeUpperBound() {
+        this.upperBounds.clear();
+    }
+
+    public void replaceLowerBound(Term bound, boolean exclusive) {
+        checkInteger(bound, "Lower bound must be an integer");
+        removeLowerBound();
+        if (exclusive) {
+            addExclusiveLowerBound(bound);
+        } else {
+            addLowerBound(bound);
+        }
+    }
+
+    public void replaceUpperBound(Term bound, boolean exclusive) {
+        checkInteger(bound, "Upper bound must be an integer");
+        removeUpperBound();
+        if (exclusive) {
+            addExclusiveUpperBound(bound);
+        } else {
+            addUpperBound(bound);
+        }
     }
 
     public Term setBounds(Term term) {

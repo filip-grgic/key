@@ -222,7 +222,7 @@ public class SymbolicExecutionStrategy extends JavaCardDLStrategy {
         StrategyProperties sp = new StrategyProperties();
         StrategyProperties.setDefaultStrategyProperties(sp, quantifierInstantiationWithSplitting,
             methodTreatmentContract, loopTreatmentInvariant, blockTreatmentContract,
-            nonExecutionBranchHidingSideProofs, aliasChecks);
+            nonExecutionBranchHidingSideProofs, aliasChecks, true);
         return sp;
     }
 

@@ -28,6 +28,16 @@ public class BoundConjunct extends Conjunct {
         super(services);
     }
 
+    public BoundConjunct(BoundConjunct boundConjunct) {
+        super(boundConjunct.services);
+        this.quantifiers = boundConjunct.quantifiers.stream().map(Tuple::new).toList();
+        this.bounds = new HashMap<>();
+        boundConjunct.bounds.forEach((k,v) -> this.bounds.put(k, new VariableBounds(v)));
+        this.term = boundConjunct.term;
+        this.topLevelJunctor = boundConjunct.topLevelJunctor;
+        this.bindingOperatorsNegations = boundConjunct.bindingOperatorsNegations;
+    }
+
     public BoundConjunct(Term term, Services services) {
         this(services);
         quantifiers = new ArrayList<>();
@@ -115,16 +125,19 @@ public class BoundConjunct extends Conjunct {
 
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
         TermBuilder tb = services.getTermBuilder();
+
+        // Transform >/< into >=/<=
         if (preparedTerm.op().equals(integerLDT.getLessThan())) {
             preparedTerm = leftQuantified ?
                     tb.leq((JTerm) preparedTerm.sub(0), tb.func(integerLDT.getSub(), (JTerm) preparedTerm.sub(1), integerLDT.one())) :
                     tb.leq(tb.add((JTerm) preparedTerm.sub(0), integerLDT.one()), (JTerm) preparedTerm.sub(1));
         } else if (preparedTerm.op().equals(integerLDT.getGreaterThan())) {
             preparedTerm = leftQuantified ?
-                    tb.leq((JTerm) preparedTerm.sub(0), tb.add((JTerm) preparedTerm.sub(1), integerLDT.one())) :
-                    tb.leq(tb.func(integerLDT.getSub(), (JTerm) preparedTerm.sub(0), integerLDT.one()), (JTerm) preparedTerm.sub(1));
+                    tb.geq((JTerm) preparedTerm.sub(0), tb.add((JTerm) preparedTerm.sub(1), integerLDT.one())) :
+                    tb.geq(tb.func(integerLDT.getSub(), (JTerm) preparedTerm.sub(0), integerLDT.one()), (JTerm) preparedTerm.sub(1));
         }
 
+        // If there is no quantified variable on the left, swap sides
         if (!leftQuantified) {
             if (preparedTerm.op().equals(Equality.EQUALS)) {
                 preparedTerm = tb.equals((JTerm) preparedTerm.sub(1), (JTerm) preparedTerm.sub(0));
@@ -135,6 +148,7 @@ public class BoundConjunct extends Conjunct {
             }
         }
 
+        // Create new bounds for the left side
         if (!bounds.containsKey(preparedTerm.sub(0))) {
             bounds.put(preparedTerm.sub(0), new VariableBounds(services));
         }
@@ -195,6 +209,14 @@ public class BoundConjunct extends Conjunct {
         result.term = tb.replaceContainingTerm(term, oldTerm, newTerm);
         result.topLevelJunctor = topLevelJunctor;
         return result;
+    }
+
+    public VariableBounds getBounds(Term boundedTerm) {
+        return bounds.get(boundedTerm);
+    }
+
+    public Set<Term> getBoundedTerms() {
+        return bounds.keySet();
     }
 
     @Override

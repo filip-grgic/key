@@ -1294,6 +1294,18 @@ public class TermBuilder {
         }
     }
 
+    public JTerm sub(JTerm t1, JTerm t2) {
+        final IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        final JTerm zero = integerLDT.zero();
+        if (t2.equals(zero)) {
+            return t1;
+        } else if (t1.equals(zero)) {
+            return func(integerLDT.getNeg(), t2);
+        } else {
+            return func(integerLDT.getSub(), t1, t2);
+        }
+    }
+
     public JTerm inByte(JTerm var) {
         Function f = services.getNamespaces().functions().lookup(new Name("inByte"));
         return func(f, var);

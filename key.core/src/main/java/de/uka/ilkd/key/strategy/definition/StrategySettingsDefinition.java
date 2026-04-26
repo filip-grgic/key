@@ -128,6 +128,8 @@ public class StrategySettingsDefinition {
                 newProps.setProperty(StrategyProperties.CLASS_AXIOM_OPTIONS_KEY,
                     StrategyProperties.CLASS_AXIOM_DELAYED);
 
+                newProps.setProperty(StrategyProperties.SKOLEM_OPTIONS_KEY, StrategyProperties.SKOLEM_ON);
+
                 return newProps;
             }));
 
@@ -169,6 +171,8 @@ public class StrategySettingsDefinition {
 
                 newProps.setProperty(StrategyProperties.CLASS_AXIOM_OPTIONS_KEY,
                     StrategyProperties.CLASS_AXIOM_OFF);
+
+                newProps.setProperty(StrategyProperties.SKOLEM_OPTIONS_KEY, StrategyProperties.SKOLEM_ON);
 
                 return newProps;
             }));

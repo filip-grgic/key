@@ -85,11 +85,16 @@ public class CandidateInvariant {
 
     public void printHistory() {
         System.out.print("History: ");
+        System.out.println(getHistory());
+    }
+
+    public String getHistory() {
+        StringBuilder result = new StringBuilder();
         for (CandidateInvariant candidateInvariant : history) {
-            System.out.print(candidateInvariant);
-            System.out.print(", ");
+            result.append(candidateInvariant);
+            result.append(", ");
         }
-        System.out.println();
+        return result.toString();
     }
 
     @Override

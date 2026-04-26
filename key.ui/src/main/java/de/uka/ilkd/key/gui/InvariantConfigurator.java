@@ -217,6 +217,10 @@ public class InvariantConfigurator {
                 storeButton.addActionListener(this::storeActionPerformed);
 
 
+                generateErrorText.setPreferredSize(new Dimension(300, 20));
+                generateErrorText.setMaximumSize(new Dimension(300, 20));
+                generateErrorText.setMinimumSize(new Dimension(300, 20));
+
                 buttonPanel.add(generateErrorText);
                 buttonPanel.add(generateButton);
                 buttonPanel.add(applyButton);
@@ -602,8 +606,16 @@ public class InvariantConfigurator {
                     return;
                 }
 
+                //Apply/Store buttons get blocked, when heap specification appears after array select with pretty print
+                String invariantString = printTerm((JTerm) generatedInvariant, true);
+                while (invariantString.contains("@")) {
+                    int atIndex = invariantString.indexOf("@");
+                    int heapEndIndex = invariantString.indexOf("]", atIndex);
+                    invariantString = invariantString.substring(0, atIndex) + invariantString.substring( heapEndIndex + 1);
+                }
+
                 for (JTextArea textArea : invariantTextAreas) {
-                    textArea.setText(printTerm((JTerm) generatedInvariant, true));
+                    textArea.setText(invariantString);
                 }
 
                 parse();

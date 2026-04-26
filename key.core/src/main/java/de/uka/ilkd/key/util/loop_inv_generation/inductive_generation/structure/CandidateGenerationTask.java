@@ -3,6 +3,8 @@ package de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure;
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
+import de.uka.ilkd.key.logic.op.LocationVariable;
+import de.uka.ilkd.key.logic.op.Quantifier;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.SMTResult;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Tuple;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
@@ -18,42 +20,71 @@ import java.util.concurrent.atomic.AtomicReference;
 public class CandidateGenerationTask implements Runnable {
 
     private final Services services;
-    private final CandidateInvariant candidateInvariant;
+    private final List<VerificationCondition> initiationVCs;
+    private final List<VerificationCondition> consecComplVCs;
+    private final Set<LocationVariable> changingVariables;
+    private CandidateInvariant candidateInvariant;
     private final List<VerificationCondition> verificationConditions;
     private final AtomicBoolean isFinished;
     private final AtomicReference<Term> loopInvariant;
-    private final BlockingQueue<CandidateGenerationTask> taskQueue;
+    private final BlockingQueue<CandidateInvariant> taskQueue;
     private final Set<CandidateInvariant> traversedCandidates;
+    private final int id;
+    private int addedInRun;
 
-    public CandidateGenerationTask(Services services, AtomicBoolean isFinished, AtomicReference<Term> loopInvariant, BlockingQueue<CandidateGenerationTask> taskQueue, Set<CandidateInvariant> traversedCandidates, CandidateInvariant candidateInvariant, List<VerificationCondition> verificationConditions) {
+    public CandidateGenerationTask(Services services, AtomicBoolean isFinished, AtomicReference<Term> loopInvariant, BlockingQueue<CandidateInvariant> taskQueue, Set<CandidateInvariant> traversedCandidates, List<VerificationCondition> verificationConditions, Set<LocationVariable> changingVariables, int id) {
         this.services = services;
-        this.candidateInvariant = candidateInvariant;
         this.verificationConditions = verificationConditions;
+        this.initiationVCs = verificationConditions.stream().filter(vc -> vc.getVCKind() == VerificationCondition.VCKind.INITIATION).toList();
+        this.consecComplVCs = verificationConditions.stream().filter(vc -> vc.getVCKind() == VerificationCondition.VCKind.COMPLETION || vc.getVCKind() == VerificationCondition.VCKind.CONSECUTION).toList();
         this.isFinished = isFinished;
         this.loopInvariant = loopInvariant;
         this.taskQueue = taskQueue;
         this.traversedCandidates = traversedCandidates;
+        this.changingVariables = changingVariables;
+        this.id = id;
+        this.addedInRun = 0;
     }
 
     @Override
     public void run() {
         try {
-            if (candidateInvariant.repeatingHistory()) {
-                return;
-            }
+            //
+            int i = 0;
 
-            if (traversedCandidates.contains(candidateInvariant)) {
-                return;
-            } else {
-                traversedCandidates.add(candidateInvariant);
-            }
+            while (!isFinished.get()) {
+                addedInRun = 0;
+                //Try ten times to receive new task end stop after
+                i = 0;
+                candidateInvariant = taskQueue.poll();
+                while (candidateInvariant == null) {
+                    if (i >= 10) {
+                        return;
+                    }
+                    Thread.sleep(id * 200);
+                    i++;
+                    candidateInvariant = taskQueue.poll();
+                }
 
-            candidateInvariant.printHistory();
-            System.out.println("Handling: " + candidateInvariant);
+//                if (candidateInvariant.repeatingHistory()) {
+//                    continue;
+//                }
+//
+//                if (traversedCandidates.contains(candidateInvariant)) {
+//                    continue;
+//                } else {
+//                    traversedCandidates.add(candidateInvariant);
+//                }
 
-            if (checkVerificationConditions()) {
-                loopInvariant.set(candidateInvariant.translateToTerm());
-                isFinished.set(true);
+//                if (candidateInvariant.toString().contains("all{")) {
+//                    candidateInvariant.printHistory();
+//                    System.out.println("Handling: " + candidateInvariant);
+//                }
+
+                if (checkVerificationConditions()) {
+                    loopInvariant.set(candidateInvariant.translateToTerm());
+                    isFinished.set(true);
+                }
             }
         } catch (InterruptedException e) {
             this.notify();
@@ -63,15 +94,22 @@ public class CandidateGenerationTask implements Runnable {
     }
 
     private boolean checkVerificationConditions() throws InterruptedException {
+
+        for (VerificationCondition vc : initiationVCs) {
+            SMTResult result = vc.checkFulfillment(candidateInvariant.translateToTerm());
+            if (!result.isValid()) {
+                handleInitiationCounterexample(vc, result);
+                return false;
+            }
+        }
+
         boolean checksAllVCs = true;
 
-        for (VerificationCondition vc : verificationConditions) {
+        for (VerificationCondition vc : consecComplVCs) {
             SMTResult result = vc.checkFulfillment(candidateInvariant.translateToTerm());
             if (!result.isValid()) {
                 checksAllVCs = false;
-                if (vc.getVCKind() == VerificationCondition.VCKind.INITIATION) {
-                    handleInitiationCounterexample(vc, result);
-                } else if (vc.getVCKind() == VerificationCondition.VCKind.CONSECUTION) {
+                if (vc.getVCKind() == VerificationCondition.VCKind.CONSECUTION) {
                     handleConsecutionCounterexample(vc, result);
                 } else if (vc.getVCKind() == VerificationCondition.VCKind.COMPLETION) {
                     handleCompletionCounterexample(vc, result);
@@ -83,8 +121,7 @@ public class CandidateGenerationTask implements Runnable {
     }
 
     private void handleInitiationCounterexample(VerificationCondition vc, SMTResult result) throws InterruptedException {
-        System.err.println("Failed Initiation");
-        throw new InterruptedException();
+//        System.err.println("Failed Initiation");
 //        insertRelatedTerms(vc.getAntecedentRelations(), result);
     }
 
@@ -99,20 +136,29 @@ public class CandidateGenerationTask implements Runnable {
             if (candidateInvariant.containsSource(succedentTerm)) {
                 continue;
             }
-
-            Set<Tuple<Term,Term>> equalities = candidateInvariant.collectEqualities(vc.getAntecedentTerms());
             createInsertedTask(succedentTerm, succedentTerm);
-            for (Tuple<Term,Term> equality : equalities) {
-                Term replaced1 = services.getTermBuilder().replaceContainingTerm(succedentTerm, equality.first(), equality.second());
-                Term replaced2 = services.getTermBuilder().replaceContainingTerm(succedentTerm, equality.second(), equality.first());
-                createInsertedTask(succedentTerm, replaced1);
-                createInsertedTask(succedentTerm, replaced2);
+
+            if (succedentTerm.op().equals(Quantifier.ALL) || succedentTerm.op().equals(Quantifier.EX)) {
+                BoundConjunct conjunct = (BoundConjunct) Conjunct.create(succedentTerm, services);
+                Set<Term> boundedTerms = conjunct.getBoundedTerms();
+                new BoundConjunct(conjunct);
             }
+            handleEqualities(vc, succedentTerm);
         }
 
 //        replaceRelatedTerms(vc);
         insertRelatedTerms(vc.getAntecedentRelations(), result);
         insertRelatedTerms(vc.getSuccedentRelations(), result);
+    }
+
+    private void handleEqualities(VerificationCondition vc, Term succedentTerm) throws InterruptedException {
+        Set<Tuple<Term, Term>> equalities = candidateInvariant.collectEqualities(vc.getAntecedentTerms());
+        for (Tuple<Term, Term> equality : equalities) {
+            Term replaced1 = services.getTermBuilder().replaceContainingTerm(succedentTerm, equality.first(), equality.second());
+            Term replaced2 = services.getTermBuilder().replaceContainingTerm(succedentTerm, equality.second(), equality.first());
+            createInsertedTask(succedentTerm, replaced1);
+            createInsertedTask(succedentTerm, replaced2);
+        }
     }
 
     private void replaceRelatedTerms(VerificationCondition vc) throws InterruptedException {
@@ -185,20 +231,28 @@ public class CandidateGenerationTask implements Runnable {
         }
     }
 
-    private void createInsertedTask(Tuple<Term, Term> source, JTerm tb) throws InterruptedException {
+    private void createInsertedTask(Tuple<Term, Term> source, JTerm term) throws InterruptedException {
         CandidateInvariant extendedCandidate = new CandidateInvariant(candidateInvariant);
-        extendedCandidate.addConjunct(source, tb);
+        extendedCandidate.addConjunct(source, term);
         createExtendedTask(extendedCandidate);
     }
 
-    private void createInsertedTask(Term source, Term tb) throws InterruptedException {
+    private void createInsertedTask(Term source, Term term) throws InterruptedException {
+        createInsertedTask(source, Conjunct.create(term, services));
+    }
+
+    private void createInsertedTask(Term source, Conjunct conjunct) throws InterruptedException {
         CandidateInvariant extendedCandidate = new CandidateInvariant(candidateInvariant);
-        extendedCandidate.addConjunct(source, Conjunct.create(tb, services));
+        extendedCandidate.addConjunct(source, conjunct);
         createExtendedTask(extendedCandidate);
     }
 
     private void createExtendedTask(CandidateInvariant extendedCandidate) throws InterruptedException {
-        taskQueue.put(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, traversedCandidates, extendedCandidate, verificationConditions));
+        if (!traversedCandidates.contains(extendedCandidate) && !extendedCandidate.repeatingHistory()) {
+            taskQueue.put(extendedCandidate);
+            traversedCandidates.add(extendedCandidate);
+            addedInRun++;
+        }
     }
 
     @Override

@@ -2,6 +2,7 @@ package de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util;
 
 import de.uka.ilkd.key.java.JavaTools;
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.java.expression.Assignment;
 import de.uka.ilkd.key.java.statement.While;
 import de.uka.ilkd.key.ldt.JavaDLTheory;
 import de.uka.ilkd.key.logic.JTerm;
@@ -25,6 +26,8 @@ import de.uka.ilkd.key.strategy.StrategyProperties;
 import de.uka.ilkd.key.util.ProofStarter;
 import de.uka.ilkd.key.util.SideProofUtil;
 import org.key_project.logic.Name;
+import org.key_project.logic.SyntaxElement;
+import org.key_project.logic.SyntaxElementCursor;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
 import org.key_project.prover.engine.ProofSearchInformation;
@@ -162,11 +165,58 @@ public class Util {
         return sideSequent;
     }
 
+    public static Set<LocationVariable> collectChangingVariables(Services services) {
+        Sequent runningSequent = services.getProof().openGoals().head().sequent();
+        Set<LocationVariable> changingVariables = new HashSet<>();
+        for (SequentFormula sf : runningSequent.succedent()) {
+            Term formula = sf.formula();
+            var updateTermPair = TermBuilder.goBelowUpdates2((JTerm) formula);
+            JavaBlock termJavaBlock = updateTermPair.second.javaBlock();
+            if (!termJavaBlock.isEmpty()) {
+                var activeStatement = JavaTools.getActiveStatement(termJavaBlock);
+                if (activeStatement instanceof While) {
+                    changingVariables.addAll(collectChangingVariablesFromLoop((While) activeStatement));
+                }
+            }
+        }
+
+        return changingVariables;
+    }
+
+    private static Set<LocationVariable> collectChangingVariablesFromLoop(While loop) {
+        SyntaxElementCursor cursorGuard = loop.getGuard().getCursor();
+        SyntaxElementCursor cursorBody = loop.getBody().getCursor();
+
+        Set<LocationVariable> changingVariables = collectChangingVariablesFromCursor(cursorGuard);
+        changingVariables.addAll(collectChangingVariablesFromCursor(cursorBody));
+
+        return changingVariables;
+    }
+
+    private static Set<LocationVariable> collectChangingVariablesFromCursor(SyntaxElementCursor cursor) {
+        Set<LocationVariable> changingVariables = new HashSet<>();
+        while (cursor.hasNext()) {
+            SyntaxElement currentElement = cursor.getCurrentNode();
+
+            if (currentElement instanceof Assignment) {
+                if (currentElement.getChild(0) instanceof LocationVariable) {
+                    changingVariables.add((LocationVariable) currentElement.getChild(0));
+                }
+            }
+
+            if (!cursor.goToNext()) {
+                break;
+            }
+        }
+
+        return changingVariables;
+    }
+
     private static void prepareProof(ProofStarter proofStarter, Proof sideProof, Services services) {
         JavaCardDLStrategyFactory strategyFactory = new JavaCardDLStrategyFactory();
         StrategyProperties properties = services.getProof().getSettings().getStrategySettings().getActiveStrategyProperties();
-        //TODO: Using here LOOP_SCOPE_INV_TACLET for VC Generation but Invariant Configurator uses LOOP_INVARIANT, unable to generate VCs with LOOP_INVARIANT
         properties.setProperty(StrategyProperties.LOOP_OPTIONS_KEY, StrategyProperties.LOOP_SCOPE_INV_TACLET);
+        properties.setProperty(StrategyProperties.SKOLEM_OPTIONS_KEY, StrategyProperties.SKOLEM_OFF);
         proofStarter.setStrategy(strategyFactory.create(sideProof, properties));
         proofStarter.setMaxRuleApplications(10000);
     }
