@@ -5,6 +5,8 @@ import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.logic.op.Quantifier;
+import de.uka.ilkd.key.proof.init.ProofInitServiceUtil;
+import de.uka.ilkd.key.util.SideProofUtil;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.SMTResult;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Tuple;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
@@ -127,8 +129,8 @@ public class CandidateGenerationTask implements Runnable {
 
     private void handleConsecutionCounterexample(VerificationCondition vc, SMTResult result) throws InterruptedException {
 //        replaceRelatedTerms(vc);
-        insertRelatedTerms(vc.getAntecedentRelations(), result);
-        insertRelatedTerms(vc.getSuccedentRelations(), result);
+        insertRelatedTerms(vc.getAntecedentRelations(), result, true);
+        insertRelatedTerms(vc.getSuccedentRelations(), result, false);
     }
 
     private void handleCompletionCounterexample(VerificationCondition vc, SMTResult result) throws InterruptedException {
@@ -147,8 +149,8 @@ public class CandidateGenerationTask implements Runnable {
         }
 
 //        replaceRelatedTerms(vc);
-        insertRelatedTerms(vc.getAntecedentRelations(), result);
-        insertRelatedTerms(vc.getSuccedentRelations(), result);
+        insertRelatedTerms(vc.getAntecedentRelations(), result, true);
+        insertRelatedTerms(vc.getSuccedentRelations(), result, false);
     }
 
     private void handleEqualities(VerificationCondition vc, Term succedentTerm) throws InterruptedException {
@@ -175,7 +177,7 @@ public class CandidateGenerationTask implements Runnable {
         }
     }
 
-    private void insertRelatedTerms(List<Tuple<Term, Term>> relations, SMTResult result) throws InterruptedException {
+    private void insertRelatedTerms(List<Tuple<Term, Term>> relations, SMTResult result, boolean inAnte) throws InterruptedException {
         for (Tuple<Term, Term> relation : relations) {
 
             if (candidateInvariant.containsSource(relation)) {
@@ -189,10 +191,13 @@ public class CandidateGenerationTask implements Runnable {
 
             Map<String, Integer> counterexample = result.getCounterexampleConstants();
 
+
             if (!counterexample.containsKey(firstName) || !counterexample.containsKey(secondName)) {
                 insertNaively(relation, (JTerm) first, (JTerm) second);
-            } else {
+            } else if (inAnte) {
                 insertGuidedCE(relation, counterexample, (JTerm) first, (JTerm) second);
+            } else {
+                insertGuidedInverseCE(relation, counterexample, (JTerm) first, (JTerm) second);
             }
         }
     }
@@ -228,6 +233,30 @@ public class CandidateGenerationTask implements Runnable {
             createInsertedTask(relation, tb.geq(first, second));
             createInsertedTask(relation, tb.gt(first, second));
             createInsertedTask(relation, tb.not(tb.equals(first, second)));
+        }
+    }
+
+    private void insertGuidedInverseCE(Tuple<Term, Term> relation, Map<String, Integer> counterexample, JTerm first, JTerm second) throws InterruptedException {
+        String firstName = first.op().name().toString();
+        String secondName = second.op().name().toString();
+
+        int firstCEValue = counterexample.get(firstName);
+        int secondCEValue = counterexample.get(secondName);
+
+        TermBuilder tb = services.getTermBuilder();
+
+        if (firstCEValue == secondCEValue) {
+            createInsertedTask(relation, tb.not(tb.equals(first, second)));
+            createInsertedTask(relation, tb.lt(first, second));
+            createInsertedTask(relation, tb.gt(first, second));
+        } else if (firstCEValue < secondCEValue) {
+            createInsertedTask(relation, tb.gt(first, second));
+            createInsertedTask(relation, tb.geq(first, second));
+            createInsertedTask(relation, tb.equals(first, second));
+        } else {
+            createInsertedTask(relation, tb.lt(first, second));
+            createInsertedTask(relation, tb.leq(first, second));
+            createInsertedTask(relation, tb.equals(first, second));
         }
     }
 

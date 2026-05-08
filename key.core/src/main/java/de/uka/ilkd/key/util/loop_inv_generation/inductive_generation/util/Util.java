@@ -125,7 +125,8 @@ public class Util {
 
         //TODO: Implement for other types than integer as well
         locationVariableSet = locationVariableSet.stream().filter((locVar) ->
-                locVar.sort() == services.getTypeConverter().getIntegerLDT().targetSort()
+                locVar.sort() == services.getTypeConverter().getIntegerLDT().targetSort() ||
+                        locVar.sort().toString().equals("int[]")
         ).collect(Collectors.toSet());
 
         return locationVariableSet.toArray(new LocationVariable[0]);

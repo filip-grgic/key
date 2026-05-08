@@ -46,7 +46,7 @@ public class LoopInvariantGenerator implements ILoopInvariantGenerator {
         AtomicReference<Term> loopInvariant = new AtomicReference<>(null);
         Set<CandidateInvariant> traversedCandidates = ConcurrentHashMap.newKeySet();
 
-        int threadCount = 5;
+        int threadCount = 1;
 
         // Create an ExecutorService with a cached thread pool
         ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(threadCount);
@@ -90,35 +90,33 @@ public class LoopInvariantGenerator implements ILoopInvariantGenerator {
 
     private CandidateInvariant generateTestCandidate(List<VerificationCondition> verificationConditions) {
 
-        String[] names = new String[]{"i", "j", "array", "pattern"};
+        String[] names = new String[]{"fromIndex", "toIndex", "array", "idx", "value"};
 
         Map<String, Term> terms = extractAllVariables(List.of(names), verificationConditions);
         Sort intSort = services.getTypeConverter().getIntegerLDT().targetSort();
 
         TermBuilder tb = services.getTermBuilder();
-        JTerm iTerm = (JTerm) terms.get("i");
-        JTerm jTerm = (JTerm) terms.get("j");
+        JTerm fromTerm = (JTerm) terms.get("fromIndex");
+        JTerm toTerm = (JTerm) terms.get("toIndex");
+        JTerm idxTerm = (JTerm) terms.get("idx");
+        JTerm valueTerm = (JTerm) terms.get("value");
         JTerm arrayTerm = (JTerm) terms.get("array");
-        JTerm patternTerm = (JTerm) terms.get("pattern");
-        Term term1 = tb.geq(iTerm, tb.zero());
-        Term term2 = tb.geq(jTerm, tb.zero());
-        Term term3 = tb.lt(iTerm, tb.dotLength(arrayTerm));
-        Term term4 = tb.leq(tb.add(iTerm, jTerm), tb.dotLength(arrayTerm));
-        Term term5 = tb.leq(jTerm, tb.dotLength(patternTerm));
+        Term term1 = tb.geq(fromTerm, idxTerm);
+        Term term2 = tb.geq(tb.sub(idxTerm, tb.one()), toTerm);
 
-        LogicVariable xVar = new LogicVariable(new Name("x"), intSort);
-        JTerm xTerm = tb.var(xVar);
-        JTerm restrictor = tb.and(tb.leq(tb.zero(), xTerm),
-                tb.lt(xTerm, jTerm),
-                tb.lt(tb.add(iTerm, xTerm), tb.dotLength(arrayTerm)),
-                tb.lt(xTerm, tb.dotLength(patternTerm)));
-        JTerm scopus = tb.equals(tb.select(intSort, services.getTermBuilder().getBaseHeap(), arrayTerm, tb.arr(tb.add(iTerm, xTerm))),
-                tb.select(intSort, services.getTermBuilder().getBaseHeap(), patternTerm, tb.arr(xTerm)));
-        Term term6 = tb.all(xVar, tb.imp(restrictor, scopus));
+        LogicVariable iVar = new LogicVariable(new Name("i"), intSort);
+        JTerm iTerm = tb.var(iVar);
+        JTerm restrictor = tb.and(tb.leq(fromTerm, iTerm),
+                tb.leq(iTerm, tb.sub(idxTerm, tb.one())));
+        JTerm scopus = tb.equals(tb.select(intSort, services.getTermBuilder().getBaseHeap(), arrayTerm, tb.arr(iTerm)),
+                valueTerm);
+        Term term6 = tb.all(iVar, tb.imp(restrictor, scopus));
+
+
 
         CandidateInvariant candidate = new CandidateInvariant(services);
-//        candidate.addConjunct(term1, Conjunct.create(term1, services));
-//        candidate.addConjunct(term2, Conjunct.create(term2, services));
+        candidate.addConjunct(term1, Conjunct.create(term1, services));
+        candidate.addConjunct(term2, Conjunct.create(term2, services));
 //        candidate.addConjunct(term3, Conjunct.create(term3, services));
 //        candidate.addConjunct(term4, Conjunct.create(term4, services));
 //        candidate.addConjunct(term5, Conjunct.create(term5, services));
