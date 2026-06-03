@@ -6,6 +6,8 @@ import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.op.Equality;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Tuple;
 import org.key_project.logic.Term;
+import org.key_project.logic.op.Operator;
+import org.key_project.util.collection.Pair;
 
 import java.util.*;
 
@@ -85,16 +87,24 @@ public class CandidateInvariant {
 
     public void printHistory() {
         System.out.print("History: ");
-        System.out.println(getHistory());
+        System.out.println(getHistoryString());
     }
 
-    public String getHistory() {
+    private String getHistoryString() {
         StringBuilder result = new StringBuilder();
         for (CandidateInvariant candidateInvariant : history) {
             result.append(candidateInvariant);
             result.append(", ");
         }
         return result.toString();
+    }
+
+    public int getHistorySize() {
+        return history.size();
+    }
+
+    public Set<Tuple<Term, Term>> getRelationSources() {
+        return relationSourcedConjuncts.keySet();
     }
 
     @Override
@@ -158,33 +168,81 @@ public class CandidateInvariant {
         return result;
     }
 
+    public VariableBounds getBounds(Term term) {
+//        Set<Term> lowerBounds = new HashSet<>();
+//        Set<Term> upperBounds = new HashSet<>();
+        VariableBounds result = new VariableBounds(services);
+        IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        for (Tuple<Term, Term> relation : relationSourcedConjuncts.keySet()) {
+            if (relation.first().equals(term) || relation.second().equals(term)) {
+                Term first = relationSourcedConjuncts.get(relation).sub(0);
+                Term second = relationSourcedConjuncts.get(relation).sub(1);
+
+                if (first.equals(term)) {
+                    if (relationSourcedConjuncts.get(relation).op().equals(integerLDT.getGreaterOrEquals())) {
+                        result.addLowerBound(second);
+                    } else if (relationSourcedConjuncts.get(relation).op().equals(integerLDT.getLessOrEquals())) {
+                        result.addUpperBound(second);
+                        //upperBounds.add(second);
+                    }
+                } else if (second.equals(term)) {
+                    if (relationSourcedConjuncts.get(relation).op().equals(integerLDT.getGreaterOrEquals())) {
+                        result.addUpperBound(first);
+//                        upperBounds.add(first);
+                    } else if (relationSourcedConjuncts.get(relation).op().equals(integerLDT.getLessOrEquals())) {
+                        result.addLowerBound(first);
+//                        lowerBounds.add(first);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
     public Set<Tuple<Term, Term>> collectEqualities(List<Term> antecedentTerms) {
         Set<Tuple<Term, Term>> result = new HashSet<>();
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
 
         List<Term> allTerms = new ArrayList<>(conjuncts());
         allTerms.addAll(antecedentTerms);
+        List<Pair<Operator, Tuple<Term,Term>>> termsWithOps = allTerms.stream()
+                .filter(t -> t.subs().size() == 2)
+                .map(t -> new Pair<>(t.op(), new Tuple<>(t.sub(0), t.sub(1))))
+                .toList();
 
-        for (int i = 0; i < allTerms.size(); i++) {
-            Term term = allTerms.get(i);
-            if (term.op() instanceof Equality) {
-                result.add(new Tuple<>(term.sub(0), term.sub(1)));
+        for (int i = 0; i < termsWithOps.size(); i++) {
+            Pair<Operator, Tuple<Term,Term>> pair = termsWithOps.get(i);
+            Operator op = pair.first;
+            Tuple<Term,Term> tuple = pair.second;
+            if (op instanceof Equality) {
+                result.add(tuple);
+                continue;
             }
 
-            else if (term.op().equals(integerLDT.getGreaterOrEquals())) {
-                for (int j = i+1; j < allTerms.size(); j++) {
-                    Term otherTerm = allTerms.get(j);
-                    if (otherTerm.op().equals(integerLDT.getLessOrEquals())) {
-                        result.add(new Tuple<>(term.sub(0), term.sub(1)));
+            if (op.equals(integerLDT.getGreaterOrEquals())) {
+                for (int j = i+1; j < termsWithOps.size(); j++) {
+                    if (!tuple.equals(termsWithOps.get(j).second)) {
+                        continue;
+                    }
+                    Pair<Operator, Tuple<Term,Term>> otherPair = termsWithOps.get(j);
+                    if ((otherPair.first.equals(integerLDT.getLessOrEquals()) &&
+                            tuple.first().equals(otherPair.second.first())) ||
+                            otherPair.first.equals(integerLDT.getGreaterOrEquals())) {
+                        result.add(tuple);
                     }
                 }
             }
 
-            else if (term.op().equals(integerLDT.getLessOrEquals())) {
-                for (int j = i+1; j < allTerms.size(); j++) {
-                    Term otherTerm = allTerms.get(j);
-                    if (otherTerm.op().equals(integerLDT.getGreaterOrEquals())) {
-                        result.add(new Tuple<>(term.sub(0), term.sub(1)));
+            else if (op.equals(integerLDT.getLessOrEquals())) {
+                for (int j = i+1; j < termsWithOps.size(); j++) {
+                    if (!tuple.equals(termsWithOps.get(j).second)) {
+                        continue;
+                    }
+                    Pair<Operator, Tuple<Term,Term>> otherPair = termsWithOps.get(j);
+                    if ((otherPair.first.equals(integerLDT.getGreaterOrEquals()) &&
+                        tuple.first().equals(otherPair.second.first())) ||
+                        otherPair.first.equals(integerLDT.getLessOrEquals())) {
+                        result.add(tuple);
                     }
                 }
             }

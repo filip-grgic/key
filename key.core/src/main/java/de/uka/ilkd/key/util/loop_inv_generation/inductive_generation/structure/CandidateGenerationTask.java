@@ -5,16 +5,13 @@ import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.logic.op.Quantifier;
-import de.uka.ilkd.key.proof.init.ProofInitServiceUtil;
-import de.uka.ilkd.key.util.SideProofUtil;
+import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.SMTResult;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Tuple;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
 import org.key_project.logic.Term;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,6 +22,7 @@ public class CandidateGenerationTask implements Runnable {
     private final List<VerificationCondition> initiationVCs;
     private final List<VerificationCondition> consecComplVCs;
     private final Set<LocationVariable> changingVariables;
+    private final ProofEnvironment proofEnv;
     private CandidateInvariant candidateInvariant;
     private final List<VerificationCondition> verificationConditions;
     private final AtomicBoolean isFinished;
@@ -36,6 +34,7 @@ public class CandidateGenerationTask implements Runnable {
 
     public CandidateGenerationTask(Services services, AtomicBoolean isFinished, AtomicReference<Term> loopInvariant, BlockingQueue<CandidateInvariant> taskQueue, Set<CandidateInvariant> traversedCandidates, List<VerificationCondition> verificationConditions, Set<LocationVariable> changingVariables, int id) {
         this.services = services;
+        this.proofEnv = services.getProof().getEnv();
         this.verificationConditions = verificationConditions;
         this.initiationVCs = verificationConditions.stream().filter(vc -> vc.getVCKind() == VerificationCondition.VCKind.INITIATION).toList();
         this.consecComplVCs = verificationConditions.stream().filter(vc -> vc.getVCKind() == VerificationCondition.VCKind.COMPLETION || vc.getVCKind() == VerificationCondition.VCKind.CONSECUTION).toList();
@@ -53,6 +52,7 @@ public class CandidateGenerationTask implements Runnable {
         try {
             //
             int i = 0;
+            int considered = 0;
 
             while (!isFinished.get()) {
                 addedInRun = 0;
@@ -67,6 +67,7 @@ public class CandidateGenerationTask implements Runnable {
                     i++;
                     candidateInvariant = taskQueue.poll();
                 }
+                considered++;
 
 //                if (candidateInvariant.repeatingHistory()) {
 //                    continue;
@@ -86,6 +87,9 @@ public class CandidateGenerationTask implements Runnable {
                 if (checkVerificationConditions()) {
                     loopInvariant.set(candidateInvariant.translateToTerm());
                     isFinished.set(true);
+                    System.out.println("Finished generation after " + considered + " candidates");
+                    System.out.println("Candidate has " + candidateInvariant.getHistorySize() + " history entries");
+                    System.out.println(taskQueue.size() + " candidates left in queue");
                 }
             }
         } catch (InterruptedException e) {
@@ -131,6 +135,7 @@ public class CandidateGenerationTask implements Runnable {
 //        replaceRelatedTerms(vc);
         insertRelatedTerms(vc.getAntecedentRelations(), result, true);
         insertRelatedTerms(vc.getSuccedentRelations(), result, false);
+        insertQuantifiedTerms(vc);
     }
 
     private void handleCompletionCounterexample(VerificationCondition vc, SMTResult result) throws InterruptedException {
@@ -140,15 +145,11 @@ public class CandidateGenerationTask implements Runnable {
             }
             createInsertedTask(succedentTerm, succedentTerm);
 
-            if (succedentTerm.op().equals(Quantifier.ALL) || succedentTerm.op().equals(Quantifier.EX)) {
-                BoundConjunct conjunct = (BoundConjunct) Conjunct.create(succedentTerm, services);
-                Set<Term> boundedTerms = conjunct.getBoundedTerms();
-                new BoundConjunct(conjunct);
-            }
             handleEqualities(vc, succedentTerm);
         }
 
 //        replaceRelatedTerms(vc);
+        insertQuantifiedTerms(vc);
         insertRelatedTerms(vc.getAntecedentRelations(), result, true);
         insertRelatedTerms(vc.getSuccedentRelations(), result, false);
     }
@@ -160,20 +161,6 @@ public class CandidateGenerationTask implements Runnable {
             Term replaced2 = services.getTermBuilder().replaceContainingTerm(succedentTerm, equality.second(), equality.first());
             createInsertedTask(succedentTerm, replaced1);
             createInsertedTask(succedentTerm, replaced2);
-        }
-    }
-
-    private void replaceRelatedTerms(VerificationCondition vc) throws InterruptedException {
-        if (candidateInvariant.isEmpty()) {
-            return;
-        }
-        for (Tuple<Term, Term> antecedentRelation : vc.getAntecedentRelations()) {
-            CandidateInvariant extendedCandidate1 = new CandidateInvariant(candidateInvariant);
-            extendedCandidate1.replaceTerm(antecedentRelation.first(), antecedentRelation.second());
-            createExtendedTask(extendedCandidate1);
-            CandidateInvariant extendedCandidate2 = new CandidateInvariant(candidateInvariant);
-            extendedCandidate2.replaceTerm(antecedentRelation.second(), antecedentRelation.first());
-            createExtendedTask(extendedCandidate2);
         }
     }
 
@@ -257,6 +244,66 @@ public class CandidateGenerationTask implements Runnable {
             createInsertedTask(relation, tb.lt(first, second));
             createInsertedTask(relation, tb.leq(first, second));
             createInsertedTask(relation, tb.equals(first, second));
+        }
+    }
+
+    private void insertQuantifiedTerms(VerificationCondition vc) throws InterruptedException {
+        List<Term> antecedentTerms = vc.getAntecedentTerms();
+
+        for (Term antecedentTerm : antecedentTerms) {
+            if (candidateInvariant.containsSource(antecedentTerm)) {
+                continue;
+            }
+            if (antecedentTerm.op().equals(Quantifier.EX)) {
+                BoundConjunct conjunct = (BoundConjunct) Conjunct.create(antecedentTerm, services);
+                Map<Term, VariableBounds> boundedTerms = conjunct.getQuantifiableVariableBounds();
+                for (Term boundedTerm : boundedTerms.keySet()) {
+                    VariableBounds bounds = boundedTerms.get(boundedTerm); //b1 and b2
+                    Map<Term, Set<Term>> newLowerBounds = new HashMap<>();
+                    Map<Term, Set<Term>> newUpperBounds = new HashMap<>();
+
+                    for (Term lowerBound : bounds.getAllLowerBounds()) {
+                        Set<Term> lowerReplacements = new HashSet<>(vc.getBounds(lowerBound).getAllUpperBounds());
+                        lowerReplacements.addAll(candidateInvariant.getBounds(lowerBound).getAllUpperBounds());
+                        for (Term lowerReplacement : lowerReplacements) {
+                            if (!newLowerBounds.containsKey(lowerReplacement)) {
+                                newLowerBounds.put(lowerReplacement, new HashSet<>());
+                            }
+                            newLowerBounds.get(lowerReplacement).add(lowerBound);
+                        }
+
+                    }
+
+                    for (Term upperBound : bounds.getAllUpperBounds()) {
+                        Set<Term> upperReplacements = new HashSet<>(vc.getBounds(upperBound).getAllLowerBounds());
+                        upperReplacements.addAll(candidateInvariant.getBounds(upperBound).getAllLowerBounds());
+                        for (Term upperReplacement : upperReplacements) {
+                            if (!newUpperBounds.containsKey(upperReplacement)) {
+                                newUpperBounds.put(upperReplacement, new HashSet<>());
+                            }
+                            newUpperBounds.get(upperReplacement).add(upperBound);
+                        }
+
+                    }
+
+                    for (Term newLowerBound : newLowerBounds.keySet()) {
+                        for (Term newUpperBound : newUpperBounds.keySet()) {
+                            BoundConjunct boundConjunct1 = new BoundConjunct(conjunct);
+                            for (Term newLowerBoundReplacement : newLowerBounds.get(newLowerBound)) {
+                                boundConjunct1 = (BoundConjunct) boundConjunct1.replace(newLowerBoundReplacement, newUpperBound);
+                            }
+                            
+                            BoundConjunct boundConjunct2 = new BoundConjunct(conjunct);
+                            for (Term newUpperBoundReplacement : newUpperBounds.get(newUpperBound)) {
+                                boundConjunct2 = (BoundConjunct) boundConjunct2.replace(newUpperBoundReplacement, newLowerBound);
+                            }
+
+                            DoubleBoundConjunct doubleBoundConjunct = new DoubleBoundConjunct(boundConjunct1, boundConjunct2, services, true);
+                            createInsertedTask(antecedentTerm, doubleBoundConjunct);
+                        }
+                    }
+                }
+            }
         }
     }
 

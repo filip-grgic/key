@@ -8,19 +8,20 @@ import de.uka.ilkd.key.logic.op.Equality;
 import de.uka.ilkd.key.logic.op.Junctor;
 import de.uka.ilkd.key.logic.op.Quantifier;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.QuantifiableVariableVisitor;
-import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Tuple;
 import org.key_project.logic.Term;
 import org.key_project.logic.op.Function;
 import org.key_project.logic.op.Operator;
 import org.key_project.logic.op.QuantifiableVariable;
+import org.key_project.util.collection.Pair;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class BoundConjunct extends Conjunct {
 
-    private List<Tuple<Quantifier, QuantifiableVariable>> quantifiers;
+    private List<Pair<Quantifier, QuantifiableVariable>> quantifiers;
     private Map<Term, VariableBounds> bounds;
-    private Term term;
+    private Term scope;
     private Junctor topLevelJunctor;
     private Map<Operator, Operator> bindingOperatorsNegations;
 
@@ -30,10 +31,10 @@ public class BoundConjunct extends Conjunct {
 
     public BoundConjunct(BoundConjunct boundConjunct) {
         super(boundConjunct.services);
-        this.quantifiers = boundConjunct.quantifiers.stream().map(Tuple::new).toList();
+        this.quantifiers = boundConjunct.quantifiers.stream().map((p) -> new Pair<>(p.first, p.second)).toList();
         this.bounds = new HashMap<>();
         boundConjunct.bounds.forEach((k,v) -> this.bounds.put(k, new VariableBounds(v)));
-        this.term = boundConjunct.term;
+        this.scope = boundConjunct.scope;
         this.topLevelJunctor = boundConjunct.topLevelJunctor;
         this.bindingOperatorsNegations = boundConjunct.bindingOperatorsNegations;
     }
@@ -45,7 +46,7 @@ public class BoundConjunct extends Conjunct {
         Term currentTerm = term;
 
         while (currentTerm.op() instanceof Quantifier) {
-            quantifiers.add(new Tuple<>((Quantifier) currentTerm.op(), currentTerm.boundVars().get(0)));
+            quantifiers.add(new Pair<>((Quantifier) currentTerm.op(), currentTerm.boundVars().get(0)));
             currentTerm = currentTerm.subs().get(0);
         }
 
@@ -73,7 +74,7 @@ public class BoundConjunct extends Conjunct {
             currentTerm = currentTerm.sub(1);
         }
 
-        this.term = currentTerm;
+        this.scope = currentTerm;
 
     }
 
@@ -129,12 +130,12 @@ public class BoundConjunct extends Conjunct {
         // Transform >/< into >=/<=
         if (preparedTerm.op().equals(integerLDT.getLessThan())) {
             preparedTerm = leftQuantified ?
-                    tb.leq((JTerm) preparedTerm.sub(0), tb.func(integerLDT.getSub(), (JTerm) preparedTerm.sub(1), integerLDT.one())) :
-                    tb.leq(tb.add((JTerm) preparedTerm.sub(0), integerLDT.one()), (JTerm) preparedTerm.sub(1));
+                    tb.leq((JTerm) preparedTerm.sub(0), (JTerm) subtractOne(preparedTerm.sub(1))) :
+                    tb.leq((JTerm) addOne(preparedTerm.sub(0)), (JTerm) preparedTerm.sub(1));
         } else if (preparedTerm.op().equals(integerLDT.getGreaterThan())) {
             preparedTerm = leftQuantified ?
-                    tb.geq((JTerm) preparedTerm.sub(0), tb.add((JTerm) preparedTerm.sub(1), integerLDT.one())) :
-                    tb.geq(tb.func(integerLDT.getSub(), (JTerm) preparedTerm.sub(0), integerLDT.one()), (JTerm) preparedTerm.sub(1));
+                    tb.geq((JTerm) preparedTerm.sub(0), (JTerm) addOne(preparedTerm.sub(1))) :
+                    tb.geq((JTerm) subtractOne(preparedTerm.sub(0)), (JTerm) preparedTerm.sub(1));
         }
 
         // If there is no quantified variable on the left, swap sides
@@ -164,10 +165,25 @@ public class BoundConjunct extends Conjunct {
         }
     }
 
+    public BoundConjunct negateScope() {
+        BoundConjunct result = new BoundConjunct(this);
+        result.scope = services.getTermBuilder().not((JTerm) result.scope);
+        return result;
+    }
+
+    public BoundConjunct flipQuantifiers() {
+        BoundConjunct result = new BoundConjunct(this);
+        result.quantifiers = quantifiers.stream()
+                .map(p -> new Pair<>(p.first.equals(Quantifier.ALL) ? Quantifier.EX : Quantifier.ALL, p.second))
+                .toList();
+        result.topLevelJunctor = topLevelJunctor.equals(Junctor.IMP) ? Junctor.AND : Junctor.IMP;
+        return result;
+    }
+
     @Override
     public Term translateToTerm() {
         TermBuilder tb = services.getTermBuilder();
-        Term result = term;
+        Term result = scope;
 
         Term restrictor = null;
         for (Term key : bounds.keySet()) {
@@ -187,11 +203,11 @@ public class BoundConjunct extends Conjunct {
         }
 
         for (int i = quantifiers.size() - 1; i >= 0; i--) {
-            Tuple<Quantifier, QuantifiableVariable> quantifier = quantifiers.get(i);
-            if (quantifier.first().equals(Quantifier.ALL)) {
-                result = tb.all(quantifier.second(), (JTerm) result);
-            } else if (quantifier.first().equals(Quantifier.EX)) {
-                result = tb.ex(quantifier.second(), (JTerm) result);
+            Pair<Quantifier, QuantifiableVariable> quantifier = quantifiers.get(i);
+            if (quantifier.first.equals(Quantifier.ALL)) {
+                result = tb.all(quantifier.second, (JTerm) result);
+            } else if (quantifier.first.equals(Quantifier.EX)) {
+                result = tb.ex(quantifier.second, (JTerm) result);
             }
         }
 
@@ -206,7 +222,7 @@ public class BoundConjunct extends Conjunct {
         result.bounds = new HashMap<>();
         bounds.forEach((k, v) ->
                 result.bounds.put(tb.replaceContainingTerm(k, oldTerm, newTerm), v.replace(oldTerm, newTerm)));
-        result.term = tb.replaceContainingTerm(term, oldTerm, newTerm);
+        result.scope = tb.replaceContainingTerm(scope, oldTerm, newTerm);
         result.topLevelJunctor = topLevelJunctor;
         return result;
     }
@@ -219,6 +235,48 @@ public class BoundConjunct extends Conjunct {
         return bounds.keySet();
     }
 
+    public Map<Term, VariableBounds> getQuantifiableVariableBounds() {
+        return bounds.entrySet().stream()
+                .filter(e -> e.getKey().op() instanceof  QuantifiableVariable)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private Term addOne(Term term) {
+        IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        TermBuilder tb = services.getTermBuilder();
+        Term negOne = tb.neg(tb.one());
+        if (term.op().equals(integerLDT.getAdd())) {
+            if (term.sub(0).equals(negOne)) {
+                return term.sub(1);
+            } else if (term.sub(1).equals(negOne)) {
+                return term.sub(0);
+            }
+        } else if (term.op().equals(integerLDT.getSub())) {
+            if (term.sub(1).equals(tb.one())) {
+                return term.sub(0);
+            }
+        }
+        return tb.add((JTerm) term, tb.one());
+    }
+
+    private Term subtractOne(Term term) {
+        IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        TermBuilder tb = services.getTermBuilder();
+        Term negOne = tb.neg(tb.one());
+        if (term.op().equals(integerLDT.getAdd())) {
+            if (term.sub(0).equals(tb.one())) {
+                return term.sub(1);
+            } else if (term.sub(1).equals(tb.one())) {
+                return term.sub(0);
+            }
+        } else if (term.op().equals(integerLDT.getSub())) {
+            if (term.sub(1).equals(negOne)) {
+                return term.sub(0);
+            }
+        }
+        return tb.sub((JTerm) term, tb.one());
+    }
+
     @Override
     public String toString() {
         return translateToTerm().toString();
@@ -229,7 +287,7 @@ public class BoundConjunct extends Conjunct {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         BoundConjunct that = (BoundConjunct) o;
-        return term.equals(that.term) &&
+        return scope.equals(that.scope) &&
                 quantifiers.equals(that.quantifiers) &&
                 bounds.equals(that.bounds) &&
                 topLevelJunctor.equals(that.topLevelJunctor);
@@ -238,7 +296,7 @@ public class BoundConjunct extends Conjunct {
     @Override
     public int hashCode() {
         int result = 79;
-        result = 31 * result + term.hashCode();
+        result = 31 * result + scope.hashCode();
         result = 31 * result + quantifiers.hashCode();
         result = 31 * result + bounds.hashCode();
         result = 31 * result + topLevelJunctor.hashCode();

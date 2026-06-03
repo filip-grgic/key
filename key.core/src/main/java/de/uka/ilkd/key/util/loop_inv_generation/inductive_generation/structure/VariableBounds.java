@@ -1,6 +1,7 @@
 package de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure;
 
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.ldt.IntegerLDT;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
 import org.key_project.logic.Term;
@@ -14,6 +15,8 @@ public class VariableBounds {
 
     private final Set<Term> lowerBounds;
     private final Set<Term> upperBounds;
+    private final Set<Term> exclusiveLowerBounds = new HashSet<>();
+    private final Set<Term> exclusiveUpperBounds = new HashSet<>();
     private final Services services;
 
     public VariableBounds(Services services) {
@@ -36,26 +39,84 @@ public class VariableBounds {
         return upperBounds;
     }
 
+    public Set<Term> getExclusiveLowerBounds() {
+        return exclusiveLowerBounds;
+    }
+
+    public Set<Term> getExclusiveUpperBounds() {
+        return exclusiveUpperBounds;
+    }
+
+    public Set<Term> getAllLowerBounds() {
+        Set<Term> result = new HashSet<>(lowerBounds);
+        result.addAll(exclusiveLowerBounds);
+        return result;
+    }
+
+    public Set<Term> getAllUpperBounds() {
+        Set<Term> result = new HashSet<>(upperBounds);
+        result.addAll(exclusiveUpperBounds);
+        return result;
+    }
+
     public void addLowerBound(Term bound) {
         checkInteger(bound, "Lower bound must be an integer");
         lowerBounds.add(bound);
+        exclusiveLowerBounds.add(subtractOne(bound));
     }
 
     public void addUpperBound(Term bound) {
         checkInteger(bound, "Upper bound must be an integer");
         upperBounds.add(bound);
+        exclusiveUpperBounds.add(addOne(bound));
     }
 
     public void addExclusiveLowerBound(Term bound) {
         checkInteger(bound, "Lower bound must be an integer");
-        bound = services.getTermBuilder().add((JTerm) bound, services.getTermBuilder().one());
-        lowerBounds.add(bound);
+        exclusiveLowerBounds.add(bound);
+        lowerBounds.add(addOne(bound));
     }
 
     public void addExclusiveUpperBound(Term bound) {
         checkInteger(bound, "Upper bound must be an integer");
-        bound = services.getTermBuilder().sub((JTerm) bound, services.getTermBuilder().one());
-        upperBounds.add(bound);
+        exclusiveUpperBounds.add(bound);
+        upperBounds.add(subtractOne(bound));
+    }
+
+    private Term addOne(Term term) {
+        IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        TermBuilder tb = services.getTermBuilder();
+        Term negOne = tb.neg(tb.one());
+        if (term.op().equals(integerLDT.getAdd())) {
+            if (term.sub(0).equals(negOne)) {
+                return term.sub(1);
+            } else if (term.sub(1).equals(negOne)) {
+                return term.sub(0);
+            }
+        } else if (term.op().equals(integerLDT.getSub())) {
+            if (term.sub(1).equals(tb.one())) {
+                return term.sub(0);
+            }
+        }
+        return tb.add((JTerm) term, tb.one());
+    }
+
+    private Term subtractOne(Term term) {
+        IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        TermBuilder tb = services.getTermBuilder();
+        Term negOne = tb.neg(tb.one());
+        if (term.op().equals(integerLDT.getAdd())) {
+            if (term.sub(0).equals(tb.one())) {
+                return term.sub(1);
+            } else if (term.sub(1).equals(tb.one())) {
+                return term.sub(0);
+            }
+        } else if (term.op().equals(integerLDT.getSub())) {
+            if (term.sub(1).equals(negOne)) {
+                return term.sub(0);
+            }
+        }
+        return tb.sub((JTerm) term, tb.one());
     }
 
     public void removeLowerBound() {
@@ -120,6 +181,23 @@ public class VariableBounds {
         if (!term.sort().equals(services.getTypeConverter().getIntegerLDT().targetSort())) {
             throw new IllegalArgumentException(message);
         }
+    }
+
+    public VariableBounds combine(VariableBounds other) {
+        VariableBounds result = new VariableBounds(services);
+        result.lowerBounds.addAll(lowerBounds);
+        result.upperBounds.addAll(upperBounds);
+        result.lowerBounds.addAll(other.lowerBounds);
+        result.upperBounds.addAll(other.upperBounds);
+        return result;
+    }
+
+    public static VariableBounds combine(VariableBounds... variableBounds) {
+        VariableBounds result = variableBounds[0];
+        for (int i = 1; i < variableBounds.length; i++) {
+            result = result.combine(variableBounds[i]);
+        }
+        return result;
     }
 
     @Override

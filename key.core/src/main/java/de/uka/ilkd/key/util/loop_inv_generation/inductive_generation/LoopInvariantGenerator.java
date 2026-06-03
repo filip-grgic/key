@@ -14,11 +14,13 @@ import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure.C
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure.CandidateInvariant;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure.Conjunct;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.NamedVariableCollector;
+import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Tuple;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Util;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
+import org.key_project.prover.sequent.SequentFormula;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -41,6 +43,7 @@ public class LoopInvariantGenerator implements ILoopInvariantGenerator {
     @Override
     public Term generateLoopInvariant() {
         List<VerificationCondition> verificationConditions = Util.generateVerificationConditions(CVC5_SOLVER, services);
+        generateInitialCandidates(verificationConditions);
         Set<LocationVariable> changingVariables = Util.collectChangingVariables(services);
         AtomicBoolean isFinished = new AtomicBoolean(false);
         AtomicReference<Term> loopInvariant = new AtomicReference<>(null);
@@ -59,7 +62,7 @@ public class LoopInvariantGenerator implements ILoopInvariantGenerator {
         try {
             taskQueue.put(initialCandidate);
             for (int i = 0; i < threadCount; i++) {
-                executorService.submit(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, traversedCandidates, verificationConditions, changingVariables, i+1));
+                executorService.submit(new CandidateGenerationTask(services, isFinished, loopInvariant, taskQueue, traversedCandidates, verificationConditions, changingVariables, i + 1));
             }
         } catch (InterruptedException e) {
             return loopInvariant.get();
@@ -88,6 +91,46 @@ public class LoopInvariantGenerator implements ILoopInvariantGenerator {
         return loopInvariant.get();
     }
 
+    private void generateInitialCandidates(List<VerificationCondition> verificationConditions) {
+        List<Tuple<Term,Term>> initUpdates = verificationConditions.stream().filter(v -> v.getVCKind().equals(VerificationCondition.VCKind.INITIATION))
+                .toList().getFirst().getInitUpdates();
+
+        List<List<Term>> initCombinations = generateInitCombinations(initUpdates, List.of(new ArrayList<>()));
+        for (List<Term> combination : initCombinations) {
+            CandidateInvariant candidate = new CandidateInvariant(services);
+            for (Term term : combination) {
+                candidate.addConjunct(new Tuple<>(term.sub(0), term.sub(1)), term);
+            }
+            taskQueue.add(candidate);
+        }
+    }
+
+    private List<List<Term>> generateInitCombinations(List<Tuple<Term, Term>> initUpdates, List<List<Term>> lists) {
+        List<List<Term>> result = new ArrayList<>();
+        Tuple<Term, Term> first = initUpdates.getFirst();
+        TermBuilder tb = services.getTermBuilder();
+
+        for (List<Term> list : lists) {
+            List<Term> newListGeq = new ArrayList<>(list);
+            newListGeq.add(tb.geq((JTerm) first.first(), (JTerm) first.second()));
+            result.add(newListGeq);
+
+            List<Term> newListLeq = new ArrayList<>(list);
+            newListLeq.add(tb.leq((JTerm) first.first(), (JTerm) first.second()));
+            result.add(newListLeq);
+
+            List<Term> newListEquals = new ArrayList<>(list);
+            newListEquals.add(tb.equals((JTerm) first.first(), (JTerm) first.second()));
+            result.add(newListEquals);
+        }
+
+        if (initUpdates.size() <= 1) {
+            return result;
+        }
+
+        return generateInitCombinations(initUpdates.subList(1, initUpdates.size()), result);
+    }
+
     private CandidateInvariant generateTestCandidate(List<VerificationCondition> verificationConditions) {
 
         String[] names = new String[]{"fromIndex", "toIndex", "array", "idx", "value"};
@@ -101,17 +144,19 @@ public class LoopInvariantGenerator implements ILoopInvariantGenerator {
         JTerm idxTerm = (JTerm) terms.get("idx");
         JTerm valueTerm = (JTerm) terms.get("value");
         JTerm arrayTerm = (JTerm) terms.get("array");
-        Term term1 = tb.geq(fromTerm, idxTerm);
-        Term term2 = tb.geq(tb.sub(idxTerm, tb.one()), toTerm);
+        Term term1 = tb.leq(fromTerm, idxTerm);
+        Term term2 = tb.leq(idxTerm, toTerm);
 
-        LogicVariable iVar = new LogicVariable(new Name("i"), intSort);
-        JTerm iTerm = tb.var(iVar);
-        JTerm restrictor = tb.and(tb.leq(fromTerm, iTerm),
-                tb.leq(iTerm, tb.sub(idxTerm, tb.one())));
-        JTerm scopus = tb.equals(tb.select(intSort, services.getTermBuilder().getBaseHeap(), arrayTerm, tb.arr(iTerm)),
-                valueTerm);
-        Term term6 = tb.all(iVar, tb.imp(restrictor, scopus));
+//        LogicVariable iVar = new LogicVariable(new Name("i"), intSort);
+//        JTerm iTerm = tb.var(iVar);
+//        JTerm restrictor = tb.and(tb.leq(fromTerm, iTerm),
+//                tb.leq(iTerm, tb.sub(idxTerm, tb.one())));
+//        JTerm scopus = tb.equals(tb.select(intSort, services.getTermBuilder().getBaseHeap(), arrayTerm, tb.arr(iTerm)),
+//                valueTerm);
+//        Term term6 = tb.all(iVar, tb.imp(restrictor, scopus));
 
+        Term succTerm = verificationConditions.getLast().getSuccedentTerms().getFirst();
+        Term term6 = services.getTermBuilder().replaceContainingTerm(succTerm, toTerm, idxTerm);
 
 
         CandidateInvariant candidate = new CandidateInvariant(services);

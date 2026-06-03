@@ -3,14 +3,16 @@ package de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util;
 import de.uka.ilkd.key.ldt.JavaDLTheory;
 import de.uka.ilkd.key.logic.DefaultVisitor;
 import org.key_project.logic.Term;
+import org.key_project.logic.op.Operator;
 import org.key_project.logic.sort.Sort;
 
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.Map;
 
 public class FreeBinaryTermCollector implements DefaultVisitor {
 
-    private final HashSet<Tuple<Term, Term>> result = new LinkedHashSet<>();
+    private final Map<Tuple<Term, Term>, Operator> result = new HashMap<>();
 
     @Override
     public void visit(Term visited) {
@@ -18,12 +20,12 @@ public class FreeBinaryTermCollector implements DefaultVisitor {
             QuantifiableVariableVisitor qfv = new QuantifiableVariableVisitor();
             visited.execPostOrder(qfv);
             if (!qfv.containsQuantifiableVariable()) {
-                result.add(new Tuple<>(visited.subs().get(0), visited.subs().get(1)));
+                result.put(new Tuple<>(visited.subs().get(0), visited.subs().get(1)), visited.op());
             }
         }
     }
 
-    public HashSet<Tuple<Term, Term>> result() {
+    public Map<Tuple<Term, Term>, Operator> result() {
         return result;
     }
 }

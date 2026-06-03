@@ -155,6 +155,7 @@ public class LabeledTermImpl extends TermImpl {
     public String toString() {
         StringBuilder result = new StringBuilder(super.toString());
 
+        //TODO: Uncomment when finished
 //        String labelsStr = labels.stream()
 //                // .filter(TermLabel::isProofRelevant)
 //                .map(TermLabel::toString).collect(Collectors.joining(", "));

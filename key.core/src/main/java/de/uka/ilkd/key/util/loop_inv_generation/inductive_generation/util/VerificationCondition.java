@@ -1,60 +1,66 @@
 package de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util;
 
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.ldt.HeapLDT;
+import de.uka.ilkd.key.ldt.IntegerLDT;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.TermFactory;
 import de.uka.ilkd.key.logic.op.Equality;
 import de.uka.ilkd.key.logic.op.LogicVariable;
+import de.uka.ilkd.key.logic.op.Quantifier;
 import de.uka.ilkd.key.logic.sort.NullSort;
+import de.uka.ilkd.key.proof.Goal;
+import de.uka.ilkd.key.proof.Proof;
 import de.uka.ilkd.key.proof.calculus.JavaDLSequentKit;
-import de.uka.ilkd.key.settings.DefaultSMTSettings;
-import de.uka.ilkd.key.settings.NewSMTTranslationSettings;
-import de.uka.ilkd.key.settings.ProofIndependentSMTSettings;
-import de.uka.ilkd.key.smt.SMTProblem;
-import de.uka.ilkd.key.smt.SMTSettings;
-import de.uka.ilkd.key.smt.SolverLauncher;
-import de.uka.ilkd.key.smt.solvertypes.SolverType;
-import de.uka.ilkd.key.smt.solvertypes.SolverTypeImplementation;
-import de.uka.ilkd.key.smt.solvertypes.SolverTypes;
+import de.uka.ilkd.key.proof.init.FunctionalOperationContractPO;
+import de.uka.ilkd.key.proof.init.ProofInputException;
+import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
+import de.uka.ilkd.key.speclang.FunctionalOperationContract;
 import de.uka.ilkd.key.speclang.LoopSpecification;
+import de.uka.ilkd.key.util.ProofStarter;
+import de.uka.ilkd.key.util.SideProofUtil;
+import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure.VariableBounds;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
 import org.key_project.logic.op.Function;
+import org.key_project.logic.op.Operator;
 import org.key_project.logic.op.QuantifiableVariable;
 import org.key_project.logic.sort.Sort;
+import org.key_project.prover.engine.ProofSearchInformation;
 import org.key_project.prover.sequent.Semisequent;
 import org.key_project.prover.sequent.Sequent;
 import org.key_project.prover.sequent.SequentFormula;
+import org.key_project.util.collection.ImmutableArray;
 import org.key_project.util.collection.ImmutableList;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class VerificationCondition {
 
     private final Sequent sequent;
     private final Services services;
+    private final ProofEnvironment proofEnv;
     private Term quantifiedInvariant;
     private final Term function;
     private final Map<Name, LogicVariable> quantVars;
 
     private final VCKind vckind;
 
-    private final List<Tuple<Term,Term>> antecedentRelations;
+    private final Map<Tuple<Term, Term>, Operator> antecedentRelations;
 
-    private final List<Tuple<Term,Term>> succedentRelations;
+    private final Map<Tuple<Term, Term>, Operator> succedentRelations;
 
-    private final List<Term> antecedentTerms = new ArrayList<>();
+    private final List<Term> antecedentTerms;
 
-    private final List<Term> succedentTerms = new ArrayList<>();
+    private final List<Term> succedentTerms;
 
 
     public VerificationCondition(Services services, Sequent sequent, LoopSpecification loopSpecification) {
         this.services = services;
-        this.sequent = prepareSequent(sequent);
+        this.proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
+//        this.sequent = prepareSequent(sequent);
+        this.sequent = sequent;
         this.function = loopSpecification.getInvariant(services);
         TermBuilder termBuilder = services.getTermBuilder();
 
@@ -79,9 +85,10 @@ public class VerificationCondition {
 
         antecedentRelations = collectBinaryRelations(this.sequent.antecedent());
         succedentRelations = collectBinaryRelations(this.sequent.succedent());
-
-        this.sequent.antecedent().forEach(sf -> antecedentTerms.add(sf.formula()));
-        this.sequent.succedent().forEach(sf -> succedentTerms.add(sf.formula()));
+        antecedentTerms = collectRelevantTerms(this.sequent.antecedent());
+        succedentTerms = collectRelevantTerms(this.sequent.succedent());
+//        this.sequent.antecedent().forEach(sf -> antecedentTerms.add(sf.formula()));
+//        this.sequent.succedent().forEach(sf -> succedentTerms.add(sf.formula()));
 
         if (invInAnte && invInSucc) {
             vckind = VCKind.CONSECUTION;
@@ -96,10 +103,18 @@ public class VerificationCondition {
     }
 
     public List<Tuple<Term, Term>> getAntecedentRelations() {
-        return antecedentRelations;
+        return antecedentRelations.keySet().stream().toList();
     }
 
     public List<Tuple<Term, Term>> getSuccedentRelations() {
+        return succedentRelations.keySet().stream().toList();
+    }
+
+    public Map<Tuple<Term, Term>, Operator> getAntecedentRelationOperators() {
+        return antecedentRelations;
+    }
+
+    public Map<Tuple<Term, Term>, Operator> getSuccedentRelationOperators() {
         return succedentRelations;
     }
 
@@ -111,28 +126,125 @@ public class VerificationCondition {
         return succedentTerms;
     }
 
-    private List<Tuple<Term,Term>> collectBinaryRelations(Semisequent semisequent) {
-        List<Tuple<Term,Term>> result = new ArrayList<>();
+    public VariableBounds getBounds(Term term) {
+//        Set<Term> lowerBounds = new HashSet<>();
+//        Set<Term> upperBounds = new HashSet<>();
+        VariableBounds result = new VariableBounds(services);
+        IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        for (Tuple<Term, Term> relation : antecedentRelations.keySet()) {
+            if (relation.first().equals(term)) {
+                if (antecedentRelations.get(relation).equals(integerLDT.getGreaterOrEquals())) {
+                    result.addLowerBound(relation.second());
+//                    lowerBounds.add(relation.second());
+                } else if (antecedentRelations.get(relation).equals(integerLDT.getLessOrEquals())) {
+                    result.addUpperBound(relation.second());
+//                    upperBounds.add(relation.second());
+                }
+            } else if (relation.second().equals(term)) {
+                if (antecedentRelations.get(relation).equals(integerLDT.getGreaterOrEquals())) {
+                    result.addUpperBound(relation.first());
+//                    upperBounds.add(relation.first());
+                } else if (antecedentRelations.get(relation).equals(integerLDT.getLessOrEquals())) {
+                    result.addLowerBound(relation.first());
+//                    lowerBounds.add(relation.first());
+                }
+            }
+        }
+        return result;
+    }
+
+    private Map<Tuple<Term, Term>, Operator> collectBinaryRelations(Semisequent semisequent) {
+        Map<Tuple<Term, Term>, Operator> result = new HashMap<>();
 
         for (SequentFormula sequentFormula : semisequent.asList()) {
+            if (formulaContainsForbidden(sequentFormula.formula())) {
+                continue;
+            }
             FreeBinaryTermCollector btc = new FreeBinaryTermCollector();
             sequentFormula.formula().execPostOrder(btc);
-            result.addAll(btc.result());
+            result.putAll(btc.result());
         }
 
         return result;
+    }
+
+    private List<Term> collectRelevantTerms(Semisequent semisequent) {
+        List<Term> result = new ArrayList<>();
+        HeapLDT heapLDT = services.getTypeConverter().getHeapLDT();
+        for (SequentFormula sequentFormula : semisequent.asList()) {
+            Term formula = sequentFormula.formula();
+            if (formula.op().equals(heapLDT.getWellFormed())) {
+                continue;
+            } else if (formula.op().equals(this.function.op())) {
+                continue;
+            } else if (formulaContainsForbidden(formula)) {
+                continue;
+            } else if (formula.toString().contains("anon")) {
+                formula = removeAnonymisation(formula, heapLDT);
+            }
+            result.add(formula);
+        }
+        return result;
+    }
+
+    private Term removeAnonymisation(Term formula, HeapLDT heapLDT) {
+        if (formula.op().equals(heapLDT.getAnon())) {
+            return removeAnonymisation(formula.sub(0), heapLDT);
+        } else if (!formula.subs().isEmpty()) {
+            JTerm[] newSubs = new JTerm[formula.subs().size()];
+            for (int i = 0; i < formula.subs().size(); i++) {
+                newSubs[i] = (JTerm) removeAnonymisation(formula.sub(i), heapLDT);
+            }
+
+            if (formula.op() instanceof Quantifier) {
+                ImmutableArray<QuantifiableVariable> quantVars = new ImmutableArray<>(formula.boundVars().stream().map(v -> (QuantifiableVariable) v).toList());
+                return services.getTermFactory().createTerm(formula.op(), newSubs, quantVars, null);
+            }
+            return services.getTermFactory().createTerm(formula.op(), newSubs);
+        }
+        return formula;
     }
 
     public SMTResult checkFulfillment(Term term) {
 //        Term preparedCandidate = createQuantification(term);
 //        Sequent resultingSequent = sequent.addFormula(new SequentFormula(preparedCandidate), true, true)
 //                .sequent();
+
         Sequent resultingSequent = insertCandidateIntoSequent(term);
 
+        //Use KeY for checking validity of the resulting sequent
+//        try {
+//            ProofStarter starter = createProofStarter(resultingSequent);
+//            ProofSearchInformation<Proof, Goal> pi = starter.start();
+//            if (pi.getProof().openGoals().isEmpty()) {
+//                return new SMTResult(true);
+//            }
+//        } catch (ProofInputException ex) {
+//            return new SMTResult(false);
+//        }
+
+        //SMT Solver for counterexample generation
         SMTInstance smtInstance = new SMTInstance(resultingSequent, services);
         smtInstance.processSMTProblem();
         return smtInstance.result();
     }
+
+    private ProofStarter createProofStarter(Sequent sequent) throws ProofInputException {
+        ProofStarter starter = new ProofStarter(false);
+        starter.init(sequent, proofEnv, "VC proof");
+
+        Proof proof = starter.getProof();
+        assert proof != null;
+
+        FunctionalOperationContractPO po = new FunctionalOperationContractPO(proof.getInitConfig(), (FunctionalOperationContract) services.getSpecificationRepository().getContractPOForProof(services.getProof()).getContract());
+        po.registerClassAxiomTaclets(po.getContainerType(), proof.getInitConfig());
+        proof.getOpenGoal(proof.root()).indexOfTaclets().addTaclets(
+                po.getInitialTaclets()
+        );
+
+        return starter;
+    }
+
 
     private Sequent prepareSequent(Sequent sequent) {
         ImmutableList<SequentFormula> newAntecedent = removeForbiddenFromSemiSequent(sequent.antecedent());
@@ -161,8 +273,8 @@ public class VerificationCondition {
 
         if (term.op().name().toString().equals("measuredByEmpty")) {
             return true;
-        } else if (term.sort().equals(services.getTypeConverter().getHeapLDT().targetSort())) {
-            return true;
+//        } else if (term.sort().equals(services.getTypeConverter().getHeapLDT().targetSort())) {
+//            return true;
         } else if (term.op().name().toString().equals("self")) {
             return true;
         } else if (term.sort().name().toString().equals("Field") && !term.op().name().toString().equals("arr")) {
@@ -246,6 +358,36 @@ public class VerificationCondition {
 
     public VCKind getVCKind() {
         return vckind;
+    }
+
+    public List<Tuple<Term, Term>> getInitUpdates() {
+        List<Tuple<Term, Term>> result = new ArrayList<>();
+        if (!vckind.equals(VCKind.INITIATION)) {
+            return result;
+        }
+
+        Term updatedFunction = null;
+
+        for (Term term : sequent.succedent().asList().stream().map(SequentFormula::formula).toList()) {
+            if (term.op().equals(function.op())) {
+                updatedFunction = term;
+                break;
+            }
+        }
+
+        if (updatedFunction == null) {
+            return result;
+        }
+
+        for (int i = 0; i < updatedFunction.subs().size(); i++) {
+            if (!updatedFunction.sub(i).equals(function.sub(i)) &&
+                    !function.sub(i).toString().equals("_" + updatedFunction.sub(i)) &&
+                    function.sub(i).sort().equals(services.getTypeConverter().getIntegerLDT().targetSort())) {
+                result.add(new Tuple<>(updatedFunction.sub(i), function.sub(i)));
+            }
+        }
+
+        return result;
     }
 
     public enum VCKind {

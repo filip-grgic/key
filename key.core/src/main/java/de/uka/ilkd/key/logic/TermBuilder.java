@@ -1300,10 +1300,21 @@ public class TermBuilder {
         if (t2.equals(zero)) {
             return t1;
         } else if (t1.equals(zero)) {
-            return func(integerLDT.getNeg(), t2);
+            return neg(t2);
         } else {
             return func(integerLDT.getSub(), t1, t2);
         }
+    }
+
+    public JTerm neg(JTerm t1) {
+        final IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        if (t1.op().equals(integerLDT.getNumberSymbol())) {
+            if (t1.sub(0).op().equals(integerLDT.getNegativeNumberSign())) {
+                return func(integerLDT.getNumberSymbol(), t1.sub(0).sub(0));
+            }
+            return func(integerLDT.getNumberSymbol(), func(integerLDT.getNegativeNumberSign(), t1.sub(0)));
+        }
+        return func(integerLDT.getNeg(), t1);
     }
 
     public JTerm inByte(JTerm var) {

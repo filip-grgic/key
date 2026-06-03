@@ -47,7 +47,13 @@ public class SMTInstance {
         }
 
         SMTTranslator translator = new SMTTranslator(services);
-        String smtProblem = translator.translateSequent(sequent);
+        String smtProblem = "";
+        try {
+            smtProblem = translator.translateSequent(sequent);
+        } catch (IllegalArgumentException e) {
+            result = new SMTResult(false, new HashMap<>(), new HashMap<>());;
+            return;
+        }
 
         try {
             ProcessBuilder processBuilder = new ProcessBuilder("cvc5", "--lang=smt2");

@@ -16,6 +16,7 @@ import de.uka.ilkd.key.proof.TermProgramVariableCollector;
 import de.uka.ilkd.key.proof.calculus.JavaDLSequentKit;
 import de.uka.ilkd.key.proof.init.FunctionalOperationContractPO;
 import de.uka.ilkd.key.proof.init.ProofInputException;
+import de.uka.ilkd.key.proof.io.ProofSaver;
 import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
 import de.uka.ilkd.key.smt.solvertypes.SolverType;
 import de.uka.ilkd.key.speclang.BasicLoopSpecificationImpl;
@@ -35,6 +36,7 @@ import org.key_project.prover.sequent.Sequent;
 import org.key_project.prover.sequent.SequentFormula;
 import org.key_project.util.collection.ImmutableList;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -89,6 +91,8 @@ public class Util {
 
         prepareProof(proofStarter, sideProof, services);
         ProofSearchInformation<Proof, Goal> pi = proofStarter.start();
+        ProofSaver ps = new ProofSaver(pi.getProof(), Paths.get("/home/filip/Desktop/doneProof"), true);
+        ps.save();
 
         //Verification Conditions are the open goals that are still left
         return convertGoalsToVerificationConditions(pi.getProof().openGoals(), loopSpecs, services);
@@ -126,7 +130,8 @@ public class Util {
         //TODO: Implement for other types than integer as well
         locationVariableSet = locationVariableSet.stream().filter((locVar) ->
                 locVar.sort() == services.getTypeConverter().getIntegerLDT().targetSort() ||
-                        locVar.sort().toString().equals("int[]")
+                        locVar.sort().toString().equals("int[]") ||
+                        locVar.sort().equals(services.getTypeConverter().getHeapLDT().targetSort())
         ).collect(Collectors.toSet());
 
         return locationVariableSet.toArray(new LocationVariable[0]);
