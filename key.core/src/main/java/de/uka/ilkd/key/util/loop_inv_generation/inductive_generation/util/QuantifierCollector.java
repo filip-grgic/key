@@ -12,6 +12,10 @@ public class QuantifierCollector implements DefaultVisitor {
         if (visited.op().equals(Quantifier.ALL) || visited.op().equals(Quantifier.EX)) containsQuantifier = true;
     }
 
+    /**
+     * Returns whether the visited term contains a quantifier.
+     * @return true if the term contains a quantifier, false otherwise.
+     */
     public boolean containsQuantifier() {
         return containsQuantifier;
     }

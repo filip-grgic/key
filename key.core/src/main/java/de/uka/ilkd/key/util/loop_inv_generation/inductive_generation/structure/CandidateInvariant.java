@@ -35,6 +35,13 @@ public class CandidateInvariant {
         this.history.add(candidateInvariant);
     }
 
+    /**
+     * Translate the candidate invariant to a term for KeY by iterating over all conjuncts and translating them.
+     * The translated terms are concatenated using the and operator.
+     * If the candidate invariant is empty, then true is returned.
+     *
+     * @return Term representing the candidate invariant
+     */
     public Term translateToTerm() {
         if (isEmpty()) {
             return services.getTermBuilder().tt();
@@ -61,50 +68,65 @@ public class CandidateInvariant {
         return result;
     }
 
+    /**
+     * Adds a semantic conjunct to the candidate invariant.
+     * @param source the semantic source of the conjunct.
+     * @param conjunct the semantic conjunct.
+     */
     public void addConjunct(Term source, Conjunct conjunct) {
         vcSourcedConjuncts.put(source, conjunct);
     }
 
+    /**
+     * Adds a relation conjunct to the candidate invariant.
+     * @param source the relation source of the conjunct.
+     * @param conjunct the relation conjunct.
+     */
     public void addConjunct(Tuple<Term, Term> source, Term conjunct) {
         relationSourcedConjuncts.put(source, conjunct);
     }
 
+    /**
+     * Checks if the candidate invariant contains a conjunct with the given semantic source.
+     * @param source the semantic source of the conjunct.
+     * @return true if the candidate invariant contains a conjunct with the given semantic source, false otherwise.
+     */
     public boolean containsSource(Term source) {
         return vcSourcedConjuncts.containsKey(source);
     }
 
+    /**
+     * Checks if the candidate invariant contains a conjunct with the given relation source.
+     * @param source the relation source of the conjunct.
+     * @return true if the candidate invariant contains a conjunct with the given relation source, false otherwise.
+     */
     public boolean containsSource(Tuple<Term, Term> source) {
         return relationSourcedConjuncts.containsKey(source);
     }
 
+    /**
+     * Checks if the candidate invariant is empty.
+     *
+     * @return true if the candidate invariant is empty, false otherwise.
+     */
     public boolean isEmpty() {
         return vcSourcedConjuncts.isEmpty() && relationSourcedConjuncts.isEmpty();
     }
 
+    /**
+     * Checks if this candidate invariant is already present in the history.
+     * @return true if this candidate invariant is already present in the history, false otherwise.
+     */
     public boolean repeatingHistory() {
         return history.contains(this);
     }
 
-    public void printHistory() {
-        System.out.print("History: ");
-        System.out.println(getHistoryString());
-    }
-
-    private String getHistoryString() {
-        StringBuilder result = new StringBuilder();
-        for (CandidateInvariant candidateInvariant : history) {
-            result.append(candidateInvariant);
-            result.append(", ");
-        }
-        return result.toString();
-    }
-
+    /**
+     * Return the amount of candidates in the history of this candidate invariant.
+     * @return the amount of candidates in the history of this candidate invariant.
+     */
     public int getHistorySize() {
         return history.size();
-    }
-
-    public Set<Tuple<Term, Term>> getRelationSources() {
-        return relationSourcedConjuncts.keySet();
     }
 
     @Override
@@ -143,6 +165,12 @@ public class CandidateInvariant {
         return hash;
     }
 
+    /**
+     * Replaces all occurrences of oldTerm with newTerm in the candidate invariant by iterating through all conjuncts
+     * and replacing the term in the conjuncts.
+     * @param oldTerm term to be replaced
+     * @param newTerm term to replace with
+     */
     public void replaceTerm(Term oldTerm, Term newTerm) {
         vcSourcedConjuncts.replaceAll((k, v) -> vcSourcedConjuncts.get(k).replace(oldTerm, newTerm));
         relationSourcedConjuncts.replaceAll((k, v) -> services.getTermBuilder().replaceContainingTerm(relationSourcedConjuncts.get(k), oldTerm, newTerm));
@@ -161,6 +189,10 @@ public class CandidateInvariant {
         return result.toString();
     }
 
+    /**
+     * Returns all conjuncts of the candidate invariant as KeY terms in a list.
+     * @return list of conjuncts of the candidate invariant
+     */
     private List<Term> conjuncts() {
         List<Term> result = new ArrayList<>();
         result.addAll(vcSourcedConjuncts.values().stream().map(Conjunct::translateToTerm).toList());
@@ -168,9 +200,14 @@ public class CandidateInvariant {
         return result;
     }
 
+    /**
+     * Returns the bounds of the given term in the candidate invariant.
+     * The bounds are determined by checking whether there is a conjunct where a comparison operator has an argument of
+     * the term.
+     * @param term the term for which the bounds should be determined.
+     * @return VariableBounds representing the bounds of the term.
+     */
     public VariableBounds getBounds(Term term) {
-//        Set<Term> lowerBounds = new HashSet<>();
-//        Set<Term> upperBounds = new HashSet<>();
         VariableBounds result = new VariableBounds(services);
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
         for (Tuple<Term, Term> relation : relationSourcedConjuncts.keySet()) {
@@ -183,15 +220,12 @@ public class CandidateInvariant {
                         result.addLowerBound(second);
                     } else if (relationSourcedConjuncts.get(relation).op().equals(integerLDT.getLessOrEquals())) {
                         result.addUpperBound(second);
-                        //upperBounds.add(second);
                     }
                 } else if (second.equals(term)) {
                     if (relationSourcedConjuncts.get(relation).op().equals(integerLDT.getGreaterOrEquals())) {
                         result.addUpperBound(first);
-//                        upperBounds.add(first);
                     } else if (relationSourcedConjuncts.get(relation).op().equals(integerLDT.getLessOrEquals())) {
                         result.addLowerBound(first);
-//                        lowerBounds.add(first);
                     }
                 }
             }
@@ -199,6 +233,12 @@ public class CandidateInvariant {
         return result;
     }
 
+    /**
+     * Collects all equality pairs in the candidate invariant.
+     * When two terms t1,t2 appear in a relation as t1=t2 or t1<=t2 and t1>=t2, then the pair (t1,t2) is added to the result set.
+     * @param antecedentTerms the antecedent terms of the verification condition.
+     * @return Set of equality pairs in the candidate invariant.
+     */
     public Set<Tuple<Term, Term>> collectEqualities(List<Term> antecedentTerms) {
         Set<Tuple<Term, Term>> result = new HashSet<>();
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();

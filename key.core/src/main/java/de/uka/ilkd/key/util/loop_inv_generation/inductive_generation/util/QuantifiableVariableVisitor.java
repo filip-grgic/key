@@ -14,6 +14,10 @@ public class QuantifiableVariableVisitor implements DefaultVisitor {
         }
     }
 
+    /**
+     * Returns whether the visited term contains a quantifiable variable.
+     * @return true if the term contains a quantifiable variable, false otherwise.
+     */
     public boolean containsQuantifiableVariable() {
         return containsQuantifiableVariable;
     }

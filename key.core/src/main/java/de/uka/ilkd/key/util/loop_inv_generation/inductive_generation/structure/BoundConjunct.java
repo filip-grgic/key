@@ -1,6 +1,7 @@
 package de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure;
 
 import de.uka.ilkd.key.java.Services;
+import de.uka.ilkd.key.java.expression.operator.Negative;
 import de.uka.ilkd.key.ldt.IntegerLDT;
 import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
@@ -60,6 +61,7 @@ public class BoundConjunct extends Conjunct {
 
         bounds = new HashMap<>();
 
+        // Extract the restrictor and the scope of the quantified statement
         if (currentTerm.op().equals(Junctor.IMP)) {
             topLevelJunctor = Junctor.IMP;
             handleBounds(currentTerm.sub(0));
@@ -78,6 +80,10 @@ public class BoundConjunct extends Conjunct {
 
     }
 
+    /**
+     * Extract the bound from a negated restrictor, e.g. with a disjunction in an existentially quantified statement.
+     * @param negatedRestrictor the negated restrictor
+     */
     private void handleNegatedBounds(Term negatedRestrictor) {
         Stack<Term> stack = new Stack<>();
         stack.push(negatedRestrictor);
@@ -92,8 +98,9 @@ public class BoundConjunct extends Conjunct {
 
             Term extractingTerm;
             if (term.op().equals(Equality.EQUALS)) {
-                //TODO: Need to implement not equals but don't know how
-                continue;
+                extractingTerm = tb.not(tb.equals((JTerm) term.sub(0), (JTerm) term.sub(1)));
+            } else if (term.op().equals(Junctor.NOT) && term.sub(0).op().equals(Equality.EQUALS)) {
+                extractingTerm = tb.equals((JTerm) term.sub(0).sub(0), (JTerm) term.sub(0).sub(1));
             } else {
                 extractingTerm = tb.func((Function) bindingOperatorsNegations.get(term.op()), (JTerm) term.sub(0), (JTerm) term.sub(1));
             }
@@ -101,6 +108,10 @@ public class BoundConjunct extends Conjunct {
         }
     }
 
+    /**
+     * Extract the bounds from a restrictor.
+     * @param restrictor the restrictor
+     */
     private void handleBounds(Term restrictor) {
         Stack<Term> stack = new Stack<>();
         stack.push(restrictor);
@@ -117,6 +128,11 @@ public class BoundConjunct extends Conjunct {
 
     }
 
+    /**
+     * Extract the bound from a term. The terms in the restrictor are normalised such that quantifiable variables are
+     * on the left side and the operator include equality.
+     * @param term
+     */
     private void extractBound(Term term) {
         Term preparedTerm = term;
         QuantifiableVariableVisitor qvv = new QuantifiableVariableVisitor();
@@ -165,12 +181,21 @@ public class BoundConjunct extends Conjunct {
         }
     }
 
+    /**
+     * Create a BoundConjunct with a negated scope.
+     * @return BoundConjunct with negated scope
+     */
     public BoundConjunct negateScope() {
         BoundConjunct result = new BoundConjunct(this);
         result.scope = services.getTermBuilder().not((JTerm) result.scope);
         return result;
     }
 
+    /**
+     * Create a BoundConjunct with flipped quantifiers, where universal quantifiers become existential quantifiers and
+     * vice versa.
+     * @return BoundConjunct with flipped quantifiers
+     */
     public BoundConjunct flipQuantifiers() {
         BoundConjunct result = new BoundConjunct(this);
         result.quantifiers = quantifiers.stream()
@@ -227,20 +252,17 @@ public class BoundConjunct extends Conjunct {
         return result;
     }
 
-    public VariableBounds getBounds(Term boundedTerm) {
-        return bounds.get(boundedTerm);
-    }
-
-    public Set<Term> getBoundedTerms() {
-        return bounds.keySet();
-    }
-
     public Map<Term, VariableBounds> getQuantifiableVariableBounds() {
         return bounds.entrySet().stream()
                 .filter(e -> e.getKey().op() instanceof  QuantifiableVariable)
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
+    /**
+     * Add one to a term s.t. if the term contains a subtraction of one, it is simplified, e.g. x-1 becomes x.
+     * @param term the term to add one to
+     * @return the term with one added
+     */
     private Term addOne(Term term) {
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
         TermBuilder tb = services.getTermBuilder();
@@ -259,6 +281,11 @@ public class BoundConjunct extends Conjunct {
         return tb.add((JTerm) term, tb.one());
     }
 
+    /**
+     * Subtract one from a term s.t. if the term contains an addition of one, it is simplified, e.g. x+1 becomes x.
+     * @param term the term to subtract one from
+     * @return the term with one subtracted
+     */
     private Term subtractOne(Term term) {
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
         TermBuilder tb = services.getTermBuilder();

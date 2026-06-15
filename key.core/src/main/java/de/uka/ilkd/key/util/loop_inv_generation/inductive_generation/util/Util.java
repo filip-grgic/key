@@ -2,7 +2,6 @@ package de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util;
 
 import de.uka.ilkd.key.java.JavaTools;
 import de.uka.ilkd.key.java.Services;
-import de.uka.ilkd.key.java.expression.Assignment;
 import de.uka.ilkd.key.java.statement.While;
 import de.uka.ilkd.key.ldt.JavaDLTheory;
 import de.uka.ilkd.key.logic.JTerm;
@@ -18,7 +17,6 @@ import de.uka.ilkd.key.proof.init.FunctionalOperationContractPO;
 import de.uka.ilkd.key.proof.init.ProofInputException;
 import de.uka.ilkd.key.proof.io.ProofSaver;
 import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
-import de.uka.ilkd.key.smt.solvertypes.SolverType;
 import de.uka.ilkd.key.speclang.BasicLoopSpecificationImpl;
 import de.uka.ilkd.key.speclang.FunctionalOperationContract;
 import de.uka.ilkd.key.speclang.LoopSpecification;
@@ -27,8 +25,6 @@ import de.uka.ilkd.key.strategy.StrategyProperties;
 import de.uka.ilkd.key.util.ProofStarter;
 import de.uka.ilkd.key.util.SideProofUtil;
 import org.key_project.logic.Name;
-import org.key_project.logic.SyntaxElement;
-import org.key_project.logic.SyntaxElementCursor;
 import org.key_project.logic.Term;
 import org.key_project.logic.sort.Sort;
 import org.key_project.prover.engine.ProofSearchInformation;
@@ -45,17 +41,20 @@ import java.util.stream.Collectors;
 
 public class Util {
 
-    public static List<VerificationCondition> generateVerificationConditions(SolverType solver, Services services) {
+    /**
+     * Generates the verification conditions for the given proof by using a sideproof after inserting the fresh invariant
+     * for the While loop in the sequent.
+     * @param services the services of the proof.
+     * @return the verification conditions for the proof.
+     */
+    public static List<VerificationCondition> generateVerificationConditions(Services services) {
         ProofEnvironment proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
         Services envServices = proofEnv.getServicesForEnvironment();
         TermBuilder envTermBuilder = envServices.getTermBuilder();
         Sequent runningSequent = services.getProof().openGoals().head().sequent();
 
-        //sequentTerms = collectAllTerms(runningSequent);
-
         // Get all program variables and extract their sorts for the fresh invariant
         LocationVariable[] locationVariables = collectAllProgramVariables(runningSequent, services);
-//        programVariableSet = new HashSet<>(List.of(locationVariables));
         Sort[] predicateParameterSorts = new Sort[locationVariables.length];
         JTerm[] predicateParameterTerms = new JTerm[locationVariables.length];
 
@@ -74,7 +73,6 @@ public class Util {
         try {
             proofStarter.init(sideSequent, proofEnv, "Invariant Generation");
         } catch (ProofInputException ex) {
-            //TODO: Solve gracefully
             throw new RuntimeException(ex);
         }
 
@@ -98,6 +96,11 @@ public class Util {
         return convertGoalsToVerificationConditions(pi.getProof().openGoals(), loopSpecs, services);
     }
 
+    /**
+     * Adds the class invariant axiom to the sideproof as a taclet.
+     * @param sideProof the sideproof.
+     * @param services the services of the proof.
+     */
     private static void addPOTaclets(Proof sideProof, Services services) {
         FunctionalOperationContractPO po = new FunctionalOperationContractPO(sideProof.getInitConfig(), (FunctionalOperationContract) services.getSpecificationRepository().getContractPOForProof(services.getProof()).getContract());
         po.registerClassAxiomTaclets(po.getContainerType(), sideProof.getInitConfig());
@@ -106,17 +109,29 @@ public class Util {
         );
     }
 
+    /**
+     * Converts the open goals of the sideproof to verification conditions.
+     * @param goals the open goals of the sideproof.
+     * @param loopSpecs the loop specifications of the sideproof.
+     * @param services the services of the proof.
+     * @return the verification conditions of the sideproof.
+     */
     private static List<VerificationCondition> convertGoalsToVerificationConditions(ImmutableList<Goal> goals, List<LoopSpecification> loopSpecs, Services services) {
         List<VerificationCondition> result = new ArrayList<>();
 
         for (int i = 0; i < goals.size(); i++) {
-            //TODO: Implement for multiple possible loop specifications
             result.add(new VerificationCondition(services, goals.get(i).sequent(), loopSpecs.getFirst()));
         }
 
         return result;
     }
 
+    /**
+     * Collects all program variables in the sequent.
+     * @param sequent the sequent.
+     * @param services the services of the proof.
+     * @return an array of all program variables in the sequent.
+     */
     private static LocationVariable[] collectAllProgramVariables(Sequent sequent, Services services) {
         Set<LocationVariable> locationVariableSet = new HashSet<>();
 
@@ -127,7 +142,6 @@ public class Util {
             locationVariableSet.addAll(pvc.result());
         }
 
-        //TODO: Implement for other types than integer as well
         locationVariableSet = locationVariableSet.stream().filter((locVar) ->
                 locVar.sort() == services.getTypeConverter().getIntegerLDT().targetSort() ||
                         locVar.sort().toString().equals("int[]") ||
@@ -137,6 +151,16 @@ public class Util {
         return locationVariableSet.toArray(new LocationVariable[0]);
     }
 
+    /**
+     * Creates the sideproof sequent by adding a fresh invariant for the While loop in the sequent.
+     * The sideproof will then try to prove the sequent using the fresh invariant.
+     * @param sequent the sequent.
+     * @param envTermBuilder the term builder of the proof environment.
+     * @param predicateParameterSorts the sorts of the predicate parameters of the fresh invariant.
+     * @param predicateParameterTerms the terms of the predicate parameters of the fresh invariant.
+     * @param loopSpecs the loop specifications of the sideproof.
+     * @return the sideproof sequent.
+     */
     private static Sequent createSideproofSequent(Sequent sequent, TermBuilder envTermBuilder, Sort[] predicateParameterSorts,
                                            JTerm[] predicateParameterTerms, List<LoopSpecification> loopSpecs) {
         Sequent sideSequent = JavaDLSequentKit.createAnteSequent(sequent.antecedent().asList());
@@ -171,53 +195,12 @@ public class Util {
         return sideSequent;
     }
 
-    public static Set<LocationVariable> collectChangingVariables(Services services) {
-        Sequent runningSequent = services.getProof().openGoals().head().sequent();
-        Set<LocationVariable> changingVariables = new HashSet<>();
-        for (SequentFormula sf : runningSequent.succedent()) {
-            Term formula = sf.formula();
-            var updateTermPair = TermBuilder.goBelowUpdates2((JTerm) formula);
-            JavaBlock termJavaBlock = updateTermPair.second.javaBlock();
-            if (!termJavaBlock.isEmpty()) {
-                var activeStatement = JavaTools.getActiveStatement(termJavaBlock);
-                if (activeStatement instanceof While) {
-                    changingVariables.addAll(collectChangingVariablesFromLoop((While) activeStatement));
-                }
-            }
-        }
-
-        return changingVariables;
-    }
-
-    private static Set<LocationVariable> collectChangingVariablesFromLoop(While loop) {
-        SyntaxElementCursor cursorGuard = loop.getGuard().getCursor();
-        SyntaxElementCursor cursorBody = loop.getBody().getCursor();
-
-        Set<LocationVariable> changingVariables = collectChangingVariablesFromCursor(cursorGuard);
-        changingVariables.addAll(collectChangingVariablesFromCursor(cursorBody));
-
-        return changingVariables;
-    }
-
-    private static Set<LocationVariable> collectChangingVariablesFromCursor(SyntaxElementCursor cursor) {
-        Set<LocationVariable> changingVariables = new HashSet<>();
-        while (cursor.hasNext()) {
-            SyntaxElement currentElement = cursor.getCurrentNode();
-
-            if (currentElement instanceof Assignment) {
-                if (currentElement.getChild(0) instanceof LocationVariable) {
-                    changingVariables.add((LocationVariable) currentElement.getChild(0));
-                }
-            }
-
-            if (!cursor.goToNext()) {
-                break;
-            }
-        }
-
-        return changingVariables;
-    }
-
+    /**
+     * Prepares the properties needed for the sideproof.
+     * @param proofStarter the proof starter.
+     * @param sideProof the sideproof.
+     * @param services the services of the proof.
+     */
     private static void prepareProof(ProofStarter proofStarter, Proof sideProof, Services services) {
         JavaCardDLStrategyFactory strategyFactory = new JavaCardDLStrategyFactory();
         StrategyProperties properties = services.getProof().getSettings().getStrategySettings().getActiveStrategyProperties();

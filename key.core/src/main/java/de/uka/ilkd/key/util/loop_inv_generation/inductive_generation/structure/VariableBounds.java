@@ -31,22 +31,6 @@ public class VariableBounds {
         this.upperBounds = new HashSet<>(variableBounds.upperBounds);
     }
 
-    public Set<Term> getLowerBounds() {
-        return lowerBounds;
-    }
-
-    public Set<Term> getUpperBounds() {
-        return upperBounds;
-    }
-
-    public Set<Term> getExclusiveLowerBounds() {
-        return exclusiveLowerBounds;
-    }
-
-    public Set<Term> getExclusiveUpperBounds() {
-        return exclusiveUpperBounds;
-    }
-
     public Set<Term> getAllLowerBounds() {
         Set<Term> result = new HashSet<>(lowerBounds);
         result.addAll(exclusiveLowerBounds);
@@ -71,18 +55,11 @@ public class VariableBounds {
         exclusiveUpperBounds.add(addOne(bound));
     }
 
-    public void addExclusiveLowerBound(Term bound) {
-        checkInteger(bound, "Lower bound must be an integer");
-        exclusiveLowerBounds.add(bound);
-        lowerBounds.add(addOne(bound));
-    }
-
-    public void addExclusiveUpperBound(Term bound) {
-        checkInteger(bound, "Upper bound must be an integer");
-        exclusiveUpperBounds.add(bound);
-        upperBounds.add(subtractOne(bound));
-    }
-
+    /**
+     * Add one to a term s.t. if the term contains a subtraction of one, it is simplified, e.g. x-1 becomes x.
+     * @param term the term to add one to
+     * @return the term with one added
+     */
     private Term addOne(Term term) {
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
         TermBuilder tb = services.getTermBuilder();
@@ -101,6 +78,11 @@ public class VariableBounds {
         return tb.add((JTerm) term, tb.one());
     }
 
+    /**
+     * Subtract one from a term s.t. if the term contains an addition of one, it is simplified, e.g. x+1 becomes x.
+     * @param term the term to subtract one from
+     * @return the term with one subtracted
+     */
     private Term subtractOne(Term term) {
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
         TermBuilder tb = services.getTermBuilder();
@@ -119,34 +101,12 @@ public class VariableBounds {
         return tb.sub((JTerm) term, tb.one());
     }
 
-    public void removeLowerBound() {
-        this.lowerBounds.clear();
-    }
-
-    public void removeUpperBound() {
-        this.upperBounds.clear();
-    }
-
-    public void replaceLowerBound(Term bound, boolean exclusive) {
-        checkInteger(bound, "Lower bound must be an integer");
-        removeLowerBound();
-        if (exclusive) {
-            addExclusiveLowerBound(bound);
-        } else {
-            addLowerBound(bound);
-        }
-    }
-
-    public void replaceUpperBound(Term bound, boolean exclusive) {
-        checkInteger(bound, "Upper bound must be an integer");
-        removeUpperBound();
-        if (exclusive) {
-            addExclusiveUpperBound(bound);
-        } else {
-            addUpperBound(bound);
-        }
-    }
-
+    /**
+     * Returns a term that represents the bounds for the given term,
+     * e.g. if the lower bound is x and the upper bound is y, it returns x <= term && term <= y.
+     * @param term the term for which the bounds should be determined.
+     * @return Term representing the bounds of the term.
+     */
     public Term setBounds(Term term) {
         checkInteger(term, "Term for bounds must be an integer");
         TermBuilder tb = services.getTermBuilder();
@@ -170,6 +130,12 @@ public class VariableBounds {
         return result;
     }
 
+    /**
+     * Replaces all occurrences of oldTerm with newTerm in the variable bounds.
+     * @param oldTerm term to be replaced
+     * @param newTerm term to replace with
+     * @return VariableBounds with replaced terms
+     */
     public VariableBounds replace(Term oldTerm, Term newTerm) {
         VariableBounds result = new VariableBounds(services);
         lowerBounds.forEach(bound -> result.lowerBounds.add(services.getTermBuilder().replaceContainingTerm(bound, oldTerm, newTerm)));
@@ -177,12 +143,22 @@ public class VariableBounds {
         return result;
     }
 
+    /**
+     * Checks if the term is of sort integer. Throws an IllegalArgumentException with the given message if it is not.
+     * @param term the term to check
+     * @param message the message to throw if the term is not of sort integer
+     */
     private void checkInteger(Term term, String message) {
         if (!term.sort().equals(services.getTypeConverter().getIntegerLDT().targetSort())) {
             throw new IllegalArgumentException(message);
         }
     }
 
+    /**
+     * Combines two variable bounds into a new one.
+     * @param other the other variable bounds
+     * @return the combined variable bounds
+     */
     public VariableBounds combine(VariableBounds other) {
         VariableBounds result = new VariableBounds(services);
         result.lowerBounds.addAll(lowerBounds);
@@ -192,6 +168,11 @@ public class VariableBounds {
         return result;
     }
 
+    /**
+     * Combines multiple variable bounds into a new one.
+     * @param variableBounds the variable bounds to combine
+     * @return the combined variable bounds
+     */
     public static VariableBounds combine(VariableBounds... variableBounds) {
         VariableBounds result = variableBounds[0];
         for (int i = 1; i < variableBounds.length; i++) {

@@ -30,13 +30,20 @@ public class SMTTranslator {
         this.integerLDT = services.getTypeConverter().getIntegerLDT();
         this.termBuilder = services.getTermBuilder();
     }
-    
+
+    /**
+     * Translate a KeY sequent to an SMT-LIB problem.
+     * The SMT problem will produce models for the counterexample, and the logic is set to the strongest AUFNIRA.
+     * The values that are queried of the model are all variables in the sequent.
+     * @param sequent the KeY sequent to translate
+     * @return the SMT-LIB problem
+     */
     public String translateSequent(Sequent sequent) {
         if (sequent == null) {
             throw new IllegalArgumentException("Sequent cannot be null");
         }
 
-        Map<String, String> declarations = new HashMap<>(); 
+        Map<String, String> declarations = new HashMap<>();
         StringBuilder problemBuilder = new StringBuilder();
 
         addInitDeclarations(declarations);
@@ -76,11 +83,21 @@ public class SMTTranslator {
         return result.toString();
     }
 
+    /**
+     * Add the initial function declarations to the declarations map.
+     * @param declarations the map to add the declarations to
+     */
     private void addInitDeclarations(Map<String, String> declarations) {
         // Add declaration for the length of array function
         declarations.put(LENGTH_FUNCTION, String.format("(declare-fun %s ((Array Int Int)) Int)\n", LENGTH_FUNCTION));
     }
 
+    /**
+     * Translate the collected declarations for the SMT problem
+     * @param term
+     * @param declarations
+     * @param problemBuilder
+     */
     public void translateAssertion(Term term, Map<String, String> declarations, StringBuilder problemBuilder) {
         if (term == null) {
             throw new IllegalArgumentException("Term cannot be null");
@@ -92,6 +109,13 @@ public class SMTTranslator {
         problemBuilder.append(")\n");
     }
 
+    /**
+     * Recursively translate a KeY term into an SMT-LIB formula.
+     *
+     * @param term the KeY term to translate
+     * @param declarations the map of declarations to add new declarations to
+     * @param problemBuilder the StringBuilder to append the translated formula to
+     */
     private void recursiveTranslate(Term term, Map<String, String> declarations, StringBuilder problemBuilder) {
         // Base case: If the term is a constant or variable, append its SMT representation
         if (term.subs().isEmpty()) {
@@ -210,12 +234,28 @@ public class SMTTranslator {
         }
     }
 
+    /**
+     * Translate a unary operator into an SMT-LIB formula.
+     *
+     * @param term the term to translate
+     * @param functionSymbol the symbol of the function to use
+     * @param declarations the map of declarations to add new declarations to
+     * @param problemBuilder the StringBuilder to append the translated formula to
+     */
     private void unaryTranslate(Term term, String functionSymbol, Map<String, String> declarations, StringBuilder problemBuilder) {
         problemBuilder.append("(").append(functionSymbol).append(" ");
         recursiveTranslate(term, declarations, problemBuilder);
         problemBuilder.append(")");
     }
 
+    /**
+     * Translate a binary operator into an SMT-LIB formula.
+     * @param termLeft the left term to translate
+     * @param termRight the right term to translate
+     * @param functionSymbol the symbol of the function to use
+     * @param declarations the map of declarations to add new declarations to
+     * @param problemBuilder the StringBuilder to append the translated formula to
+     */
     private void binaryTranslate(Term termLeft, Term termRight, String functionSymbol, Map<String, String> declarations, StringBuilder problemBuilder) {
         problemBuilder.append("(").append(functionSymbol).append(" ");
         recursiveTranslate(termLeft, declarations, problemBuilder);
@@ -224,6 +264,11 @@ public class SMTTranslator {
         problemBuilder.append(")");
     }
 
+    /**
+     * Translate a KeY sort into an SMT-LIB sort.
+     * @param sort the KeY sort to translate
+     * @return the SMT-LIB sort
+     */
     private String translateSort(Sort sort) {
         if (sort.equals(integerLDT.targetSort())) {
             return "Int";

@@ -12,11 +12,6 @@ public class Tuple<X, Y> {
         this.second = second;
     }
 
-    public Tuple(Tuple<X, Y> other) {
-        this.first = other.first;
-        this.second = other.second;
-    }
-
     public X first() {
         return first;
     }

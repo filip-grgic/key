@@ -7,7 +7,6 @@ import org.key_project.logic.op.Operator;
 import org.key_project.logic.sort.Sort;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 
 public class FreeBinaryTermCollector implements DefaultVisitor {
@@ -25,6 +24,10 @@ public class FreeBinaryTermCollector implements DefaultVisitor {
         }
     }
 
+    /**
+     * Return the result of the visitor containing all free binary terms.
+     * @return the result of the visitor containing all free binary terms.
+     */
     public Map<Tuple<Term, Term>, Operator> result() {
         return result;
     }

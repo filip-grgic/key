@@ -34,6 +34,9 @@ public class SMTInstance {
         this.services = services;
     }
 
+    /**
+     * Processes the SMT problem using the CVC5 SMT solver.
+     */
     public void processSMTProblem() {
 
         SMTProblem keySmtProblem = new SMTProblem(sequent, services);
@@ -47,7 +50,7 @@ public class SMTInstance {
         }
 
         SMTTranslator translator = new SMTTranslator(services);
-        String smtProblem = "";
+        String smtProblem;
         try {
             smtProblem = translator.translateSequent(sequent);
         } catch (IllegalArgumentException e) {
@@ -85,6 +88,10 @@ public class SMTInstance {
         }
     }
 
+    /**
+     * Parses the result of the SMT problem and extracts the counterexample.
+     * @param resultString the result of the SMT problem.
+     */
     private void processResult(String resultString) {
         String[] resultLines = resultString.split("\n");
         String satResultLine = resultLines[0];
@@ -109,6 +116,12 @@ public class SMTInstance {
         result = new SMTResult(valid, counterexampleConstants, counterexampleArrays);
     }
 
+    /**
+     * Parses the array string and returns a list of (index,value)-pairs representing the array values.
+     * The SMT arrays can have negative index arrays hence why they cannot be just parsed directly to an array.
+     * @param arrayString the array string to parse.
+     * @return a list of (index,value)-pairs representing the array values.
+     */
     private List<Pair<Integer, Integer>> parseArray(String arrayString) {
 
         SortedMap<Integer, Integer> arrayValues = new TreeMap<>();
@@ -156,6 +169,11 @@ public class SMTInstance {
         return result;
     }
 
+    /**
+     * Parses the counterexample line and returns a map of variable names to their values which comprises the counterexample.
+     * @param counterexampleLine the counterexample line to parse.
+     * @return a map of variable names to their values which comprises the counterexample.
+     */
     private Map<String, String> parseCounterexample(String counterexampleLine) {
         Map<String, String> result = new HashMap<>();
         int openedAmount = 0;
@@ -183,6 +201,10 @@ public class SMTInstance {
         return result;
     }
 
+    /**
+     * Creates a new SolverLauncher instance with the default settings.
+     * @return a new SolverLauncher instance with the default settings.
+     */
     private SolverLauncher getSolverLauncher() {
         ProofIndependentSMTSettings piSettings = ProofIndependentSMTSettings.getDefaultSettingsData();
 
@@ -196,6 +218,10 @@ public class SMTInstance {
         return new SolverLauncher(smtSettings);
     }
 
+    /**
+     * Returns the result of the SMT problem.
+     * @return the result of the SMT problem.
+     */
     public SMTResult result() {
         return result;
     }

@@ -2,7 +2,6 @@ package de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util;
 
 import org.key_project.util.collection.Pair;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,11 +11,6 @@ public class SMTResult {
     private final Map<String, Integer> counterexampleConstants;
     private final Map<String, List<Pair<Integer,Integer>>> counterexampleArrays;
 
-
-    public SMTResult(boolean valid) {
-        this(valid, new HashMap<>(), new HashMap<>());
-    }
-
     public SMTResult(boolean valid, Map<String, Integer> counterexampleConstants,
                      Map<String, List<Pair<Integer,Integer>>> counterexampleArrays) {
         this.valid = valid;
@@ -24,14 +18,26 @@ public class SMTResult {
         this.counterexampleArrays = counterexampleArrays;
     }
 
+    /**
+     * Returns true if the SMT problem is valid, false otherwise.
+     * @return true if the SMT problem is valid, false otherwise.
+     */
     public boolean isValid() {
         return valid;
     }
 
+    /**
+     * Returns the counterexample constants that are not arrays.
+     * @return the counterexample constants.
+     */
     public Map<String, Integer> getCounterexampleConstants() {
         return counterexampleConstants;
     }
 
+    /**
+     * Returns the counterexample arrays.
+     * @return the counterexample arrays.
+     */
     public Map<String, List<Pair<Integer,Integer>>> getCounterexampleArrays() {
         return counterexampleArrays;
     }

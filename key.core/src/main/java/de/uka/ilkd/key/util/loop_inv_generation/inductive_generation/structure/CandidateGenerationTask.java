@@ -5,11 +5,11 @@ import de.uka.ilkd.key.logic.JTerm;
 import de.uka.ilkd.key.logic.TermBuilder;
 import de.uka.ilkd.key.logic.op.LocationVariable;
 import de.uka.ilkd.key.logic.op.Quantifier;
-import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.SMTResult;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.Tuple;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.util.VerificationCondition;
 import org.key_project.logic.Term;
+import org.key_project.logic.sort.Sort;
 
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
@@ -21,41 +21,31 @@ public class CandidateGenerationTask implements Runnable {
     private final Services services;
     private final List<VerificationCondition> initiationVCs;
     private final List<VerificationCondition> consecComplVCs;
-    private final Set<LocationVariable> changingVariables;
-    private final ProofEnvironment proofEnv;
     private CandidateInvariant candidateInvariant;
-    private final List<VerificationCondition> verificationConditions;
     private final AtomicBoolean isFinished;
     private final AtomicReference<Term> loopInvariant;
     private final BlockingQueue<CandidateInvariant> taskQueue;
     private final Set<CandidateInvariant> traversedCandidates;
     private final int id;
-    private int addedInRun;
 
-    public CandidateGenerationTask(Services services, AtomicBoolean isFinished, AtomicReference<Term> loopInvariant, BlockingQueue<CandidateInvariant> taskQueue, Set<CandidateInvariant> traversedCandidates, List<VerificationCondition> verificationConditions, Set<LocationVariable> changingVariables, int id) {
+    public CandidateGenerationTask(Services services, AtomicBoolean isFinished, AtomicReference<Term> loopInvariant, BlockingQueue<CandidateInvariant> taskQueue, Set<CandidateInvariant> traversedCandidates, List<VerificationCondition> verificationConditions, int id) {
         this.services = services;
-        this.proofEnv = services.getProof().getEnv();
-        this.verificationConditions = verificationConditions;
         this.initiationVCs = verificationConditions.stream().filter(vc -> vc.getVCKind() == VerificationCondition.VCKind.INITIATION).toList();
         this.consecComplVCs = verificationConditions.stream().filter(vc -> vc.getVCKind() == VerificationCondition.VCKind.COMPLETION || vc.getVCKind() == VerificationCondition.VCKind.CONSECUTION).toList();
         this.isFinished = isFinished;
         this.loopInvariant = loopInvariant;
         this.taskQueue = taskQueue;
         this.traversedCandidates = traversedCandidates;
-        this.changingVariables = changingVariables;
         this.id = id;
-        this.addedInRun = 0;
     }
 
     @Override
     public void run() {
         try {
-            //
-            int i = 0;
+            int i;
             int considered = 0;
 
             while (!isFinished.get()) {
-                addedInRun = 0;
                 //Try ten times to receive new task end stop after
                 i = 0;
                 candidateInvariant = taskQueue.poll();
@@ -68,21 +58,6 @@ public class CandidateGenerationTask implements Runnable {
                     candidateInvariant = taskQueue.poll();
                 }
                 considered++;
-
-//                if (candidateInvariant.repeatingHistory()) {
-//                    continue;
-//                }
-//
-//                if (traversedCandidates.contains(candidateInvariant)) {
-//                    continue;
-//                } else {
-//                    traversedCandidates.add(candidateInvariant);
-//                }
-
-//                if (candidateInvariant.toString().contains("all{")) {
-//                    candidateInvariant.printHistory();
-//                    System.out.println("Handling: " + candidateInvariant);
-//                }
 
                 if (checkVerificationConditions()) {
                     loopInvariant.set(candidateInvariant.translateToTerm());
@@ -99,18 +74,25 @@ public class CandidateGenerationTask implements Runnable {
         }
     }
 
+    /**
+     * Check if the verification conditions are fulfilled for the current candidate invariant.
+     * @return true if the verification conditions are fulfilled, false otherwise.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private boolean checkVerificationConditions() throws InterruptedException {
 
+        //Check if the initiation verification conditions are fulfilled
+        //Stop the analysis of the current candidate if initiation is not fulfilled
         for (VerificationCondition vc : initiationVCs) {
             SMTResult result = vc.checkFulfillment(candidateInvariant.translateToTerm());
             if (!result.isValid()) {
-                handleInitiationCounterexample(vc, result);
                 return false;
             }
         }
 
         boolean checksAllVCs = true;
 
+        //Check if the consecution and completion verification conditions are fulfilled
         for (VerificationCondition vc : consecComplVCs) {
             SMTResult result = vc.checkFulfillment(candidateInvariant.translateToTerm());
             if (!result.isValid()) {
@@ -126,18 +108,24 @@ public class CandidateGenerationTask implements Runnable {
         return checksAllVCs;
     }
 
-    private void handleInitiationCounterexample(VerificationCondition vc, SMTResult result) throws InterruptedException {
-//        System.err.println("Failed Initiation");
-//        insertRelatedTerms(vc.getAntecedentRelations(), result);
-    }
-
+    /**
+     * Handles the situation where the consecution verification condition is not fulfilled.
+     * @param vc the consecution verification condition that is not fulfilled.
+     * @param result the result of the consecution verification condition.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void handleConsecutionCounterexample(VerificationCondition vc, SMTResult result) throws InterruptedException {
-//        replaceRelatedTerms(vc);
         insertRelatedTerms(vc.getAntecedentRelations(), result, true);
         insertRelatedTerms(vc.getSuccedentRelations(), result, false);
         insertQuantifiedTerms(vc);
     }
 
+    /**
+     * Handles the situation where the completion verification condition is not fulfilled.
+     * @param vc the completion verification condition that is not fulfilled.
+     * @param result the result of the completion verification condition.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void handleCompletionCounterexample(VerificationCondition vc, SMTResult result) throws InterruptedException {
         for (Term succedentTerm : vc.getSuccedentTerms()) {
             if (candidateInvariant.containsSource(succedentTerm)) {
@@ -148,12 +136,19 @@ public class CandidateGenerationTask implements Runnable {
             handleEqualities(vc, succedentTerm);
         }
 
-//        replaceRelatedTerms(vc);
         insertQuantifiedTerms(vc);
         insertRelatedTerms(vc.getAntecedentRelations(), result, true);
         insertRelatedTerms(vc.getSuccedentRelations(), result, false);
     }
 
+    /**
+     * Creates the extension using equality pairs collected from the candidate invariant and the antecedent of the verification condition.
+     * The extension is inserted into the task queue.
+     *
+     * @param vc the verification condition.
+     * @param succedentTerm the term of the succedent of the verification condition.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void handleEqualities(VerificationCondition vc, Term succedentTerm) throws InterruptedException {
         Set<Tuple<Term, Term>> equalities = candidateInvariant.collectEqualities(vc.getAntecedentTerms());
         for (Tuple<Term, Term> equality : equalities) {
@@ -164,10 +159,22 @@ public class CandidateGenerationTask implements Runnable {
         }
     }
 
+    /**
+     * Inserts the related terms of the verification condition into the task queue.
+     * If the counterexample is usable for insertion, they are inserted heuristically.
+     * Otherwise, they are inserted naively.
+     *
+     * @param relations the relations of the verification condition.
+     * @param result the result of checking the fulfillment of the verification condition.
+     * @param inAnte true if the verification condition is an antecedent, false if it is a succedent.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void insertRelatedTerms(List<Tuple<Term, Term>> relations, SMTResult result, boolean inAnte) throws InterruptedException {
+        Sort heapSort = services.getTypeConverter().getHeapLDT().targetSort();
+
         for (Tuple<Term, Term> relation : relations) {
 
-            if (candidateInvariant.containsSource(relation)) {
+            if (candidateInvariant.containsSource(relation) || relation.first().sort().equals(heapSort) || relation.second().sort().equals(heapSort)) {
                 continue;
             }
 
@@ -189,6 +196,14 @@ public class CandidateGenerationTask implements Runnable {
         }
     }
 
+    /**
+     * Inserts the related terms of the verification condition into the task queue naively.
+     *
+     * @param relation the relation of the verification condition for marking the source of the insertion.
+     * @param first 1st term of the relation.
+     * @param second 2nd term of the relation.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void insertNaively(Tuple<Term, Term> relation, JTerm first, JTerm second) throws InterruptedException {
         TermBuilder tb = services.getTermBuilder();
 
@@ -199,6 +214,14 @@ public class CandidateGenerationTask implements Runnable {
         createInsertedTask(relation, tb.lt(first, second));
     }
 
+    /**
+     * Inserts the related terms of the verification condition into the task queue heuristically based on the counterexample.
+     * @param relation the relation of the verification condition for marking the source of the insertion.
+     * @param counterexample the counterexample of the verification condition.
+     * @param first 1st term of the relation.
+     * @param second 2nd term of the relation.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void insertGuidedCE(Tuple<Term, Term> relation, Map<String, Integer> counterexample, JTerm first, JTerm second) throws InterruptedException {
         String firstName = first.op().name().toString();
         String secondName = second.op().name().toString();
@@ -223,6 +246,16 @@ public class CandidateGenerationTask implements Runnable {
         }
     }
 
+    /**
+     * Inserts the related terms of the verification condition into the task queue heuristically based on the counterexample.
+     * The relation is inserted inversely if the relation was sourced in the succedent of the verification condition.
+     *
+     * @param relation the relation of the verification condition for marking the source of the insertion.
+     * @param counterexample the counterexample of the verification condition.
+     * @param first 1st term of the relation.
+     * @param second 2nd term of the relation.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void insertGuidedInverseCE(Tuple<Term, Term> relation, Map<String, Integer> counterexample, JTerm first, JTerm second) throws InterruptedException {
         String firstName = first.op().name().toString();
         String secondName = second.op().name().toString();
@@ -247,6 +280,12 @@ public class CandidateGenerationTask implements Runnable {
         }
     }
 
+    /**
+     * Inserts quantified terms of the verification condition into the task queue and implementing the existentiality
+     * narrowing extension.
+     * @param vc the verification condition.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void insertQuantifiedTerms(VerificationCondition vc) throws InterruptedException {
         List<Term> antecedentTerms = vc.getAntecedentTerms();
 
@@ -307,27 +346,49 @@ public class CandidateGenerationTask implements Runnable {
         }
     }
 
+    /**
+     * Creates a new task for the given relation source and term.
+     * @param source the relation source.
+     * @param term the relation term.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void createInsertedTask(Tuple<Term, Term> source, JTerm term) throws InterruptedException {
         CandidateInvariant extendedCandidate = new CandidateInvariant(candidateInvariant);
         extendedCandidate.addConjunct(source, term);
         createExtendedTask(extendedCandidate);
     }
 
+    /**
+     * Creates a new task for the given semantic source and term.
+     * @param source the semantic source.
+     * @param term the semantic term.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void createInsertedTask(Term source, Term term) throws InterruptedException {
         createInsertedTask(source, Conjunct.create(term, services));
     }
 
+    /**
+     * Creates a new task for the given semantic source and conjunct.
+     * @param source the semantic source.
+     * @param conjunct the semantic conjunct.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void createInsertedTask(Term source, Conjunct conjunct) throws InterruptedException {
         CandidateInvariant extendedCandidate = new CandidateInvariant(candidateInvariant);
         extendedCandidate.addConjunct(source, conjunct);
         createExtendedTask(extendedCandidate);
     }
 
+    /**
+     * Creates a new task for the given candidate invariant if it is not already in the task queue.
+     * @param extendedCandidate the candidate invariant to be added to the task queue.
+     * @throws InterruptedException if the thread is interrupted while waiting for the result of the verification conditions.
+     */
     private void createExtendedTask(CandidateInvariant extendedCandidate) throws InterruptedException {
         if (!traversedCandidates.contains(extendedCandidate) && !extendedCandidate.repeatingHistory()) {
             taskQueue.put(extendedCandidate);
             traversedCandidates.add(extendedCandidate);
-            addedInRun++;
         }
     }
 

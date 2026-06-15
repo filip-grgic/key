@@ -10,16 +10,8 @@ import de.uka.ilkd.key.logic.op.Equality;
 import de.uka.ilkd.key.logic.op.LogicVariable;
 import de.uka.ilkd.key.logic.op.Quantifier;
 import de.uka.ilkd.key.logic.sort.NullSort;
-import de.uka.ilkd.key.proof.Goal;
-import de.uka.ilkd.key.proof.Proof;
 import de.uka.ilkd.key.proof.calculus.JavaDLSequentKit;
-import de.uka.ilkd.key.proof.init.FunctionalOperationContractPO;
-import de.uka.ilkd.key.proof.init.ProofInputException;
-import de.uka.ilkd.key.proof.mgt.ProofEnvironment;
-import de.uka.ilkd.key.speclang.FunctionalOperationContract;
 import de.uka.ilkd.key.speclang.LoopSpecification;
-import de.uka.ilkd.key.util.ProofStarter;
-import de.uka.ilkd.key.util.SideProofUtil;
 import de.uka.ilkd.key.util.loop_inv_generation.inductive_generation.structure.VariableBounds;
 import org.key_project.logic.Name;
 import org.key_project.logic.Term;
@@ -27,7 +19,6 @@ import org.key_project.logic.op.Function;
 import org.key_project.logic.op.Operator;
 import org.key_project.logic.op.QuantifiableVariable;
 import org.key_project.logic.sort.Sort;
-import org.key_project.prover.engine.ProofSearchInformation;
 import org.key_project.prover.sequent.Semisequent;
 import org.key_project.prover.sequent.Sequent;
 import org.key_project.prover.sequent.SequentFormula;
@@ -40,7 +31,6 @@ public class VerificationCondition {
 
     private final Sequent sequent;
     private final Services services;
-    private final ProofEnvironment proofEnv;
     private Term quantifiedInvariant;
     private final Term function;
     private final Map<Name, LogicVariable> quantVars;
@@ -58,8 +48,6 @@ public class VerificationCondition {
 
     public VerificationCondition(Services services, Sequent sequent, LoopSpecification loopSpecification) {
         this.services = services;
-        this.proofEnv = SideProofUtil.cloneProofEnvironmentWithOwnOneStepSimplifier(services.getProof());
-//        this.sequent = prepareSequent(sequent);
         this.sequent = sequent;
         this.function = loopSpecification.getInvariant(services);
         TermBuilder termBuilder = services.getTermBuilder();
@@ -87,8 +75,6 @@ public class VerificationCondition {
         succedentRelations = collectBinaryRelations(this.sequent.succedent());
         antecedentTerms = collectRelevantTerms(this.sequent.antecedent());
         succedentTerms = collectRelevantTerms(this.sequent.succedent());
-//        this.sequent.antecedent().forEach(sf -> antecedentTerms.add(sf.formula()));
-//        this.sequent.succedent().forEach(sf -> succedentTerms.add(sf.formula()));
 
         if (invInAnte && invInSucc) {
             vckind = VCKind.CONSECUTION;
@@ -110,14 +96,6 @@ public class VerificationCondition {
         return succedentRelations.keySet().stream().toList();
     }
 
-    public Map<Tuple<Term, Term>, Operator> getAntecedentRelationOperators() {
-        return antecedentRelations;
-    }
-
-    public Map<Tuple<Term, Term>, Operator> getSuccedentRelationOperators() {
-        return succedentRelations;
-    }
-
     public List<Term> getAntecedentTerms() {
         return antecedentTerms;
     }
@@ -126,33 +104,37 @@ public class VerificationCondition {
         return succedentTerms;
     }
 
+    /**
+     * Collect all bounds of the given term in the verification condition.
+     * @param term term to collect bounds for
+     * @return VariableBounds containing the bounds of the term.
+     */
     public VariableBounds getBounds(Term term) {
-//        Set<Term> lowerBounds = new HashSet<>();
-//        Set<Term> upperBounds = new HashSet<>();
         VariableBounds result = new VariableBounds(services);
         IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
         for (Tuple<Term, Term> relation : antecedentRelations.keySet()) {
             if (relation.first().equals(term)) {
                 if (antecedentRelations.get(relation).equals(integerLDT.getGreaterOrEquals())) {
                     result.addLowerBound(relation.second());
-//                    lowerBounds.add(relation.second());
                 } else if (antecedentRelations.get(relation).equals(integerLDT.getLessOrEquals())) {
                     result.addUpperBound(relation.second());
-//                    upperBounds.add(relation.second());
                 }
             } else if (relation.second().equals(term)) {
                 if (antecedentRelations.get(relation).equals(integerLDT.getGreaterOrEquals())) {
                     result.addUpperBound(relation.first());
-//                    upperBounds.add(relation.first());
                 } else if (antecedentRelations.get(relation).equals(integerLDT.getLessOrEquals())) {
                     result.addLowerBound(relation.first());
-//                    lowerBounds.add(relation.first());
                 }
             }
         }
         return result;
     }
 
+    /**
+     * Collects all binary relations in the given semisequent.
+     * @param semisequent semisequent to collect binary relations from
+     * @return Map containing all binary relations in the semisequent
+     */
     private Map<Tuple<Term, Term>, Operator> collectBinaryRelations(Semisequent semisequent) {
         Map<Tuple<Term, Term>, Operator> result = new HashMap<>();
 
@@ -168,6 +150,11 @@ public class VerificationCondition {
         return result;
     }
 
+    /**
+     * Filters all irrelevant terms from the given semisequent.
+     * @param semisequent semisequent to filter irrelevant terms from
+     * @return List containing all relevant terms in the semisequent
+     */
     private List<Term> collectRelevantTerms(Semisequent semisequent) {
         List<Term> result = new ArrayList<>();
         HeapLDT heapLDT = services.getTypeConverter().getHeapLDT();
@@ -187,6 +174,12 @@ public class VerificationCondition {
         return result;
     }
 
+    /**
+     * Removes the anonymisation from the given formula.
+     * @param formula formula to remove anonymisation from
+     * @param heapLDT heapLDT to use for anonymisation removal
+     * @return formula without anonymisation
+     */
     private Term removeAnonymisation(Term formula, HeapLDT heapLDT) {
         if (formula.op().equals(heapLDT.getAnon())) {
             return removeAnonymisation(formula.sub(0), heapLDT);
@@ -205,23 +198,13 @@ public class VerificationCondition {
         return formula;
     }
 
+    /**
+     * Checks whether the given term fulfills the invariant.
+     * @param term term to check
+     * @return SMTResult containing the result of the check and a possible counterexample if the check fails.
+     */
     public SMTResult checkFulfillment(Term term) {
-//        Term preparedCandidate = createQuantification(term);
-//        Sequent resultingSequent = sequent.addFormula(new SequentFormula(preparedCandidate), true, true)
-//                .sequent();
-
         Sequent resultingSequent = insertCandidateIntoSequent(term);
-
-        //Use KeY for checking validity of the resulting sequent
-//        try {
-//            ProofStarter starter = createProofStarter(resultingSequent);
-//            ProofSearchInformation<Proof, Goal> pi = starter.start();
-//            if (pi.getProof().openGoals().isEmpty()) {
-//                return new SMTResult(true);
-//            }
-//        } catch (ProofInputException ex) {
-//            return new SMTResult(false);
-//        }
 
         //SMT Solver for counterexample generation
         SMTInstance smtInstance = new SMTInstance(resultingSequent, services);
@@ -229,52 +212,15 @@ public class VerificationCondition {
         return smtInstance.result();
     }
 
-    private ProofStarter createProofStarter(Sequent sequent) throws ProofInputException {
-        ProofStarter starter = new ProofStarter(false);
-        starter.init(sequent, proofEnv, "VC proof");
-
-        Proof proof = starter.getProof();
-        assert proof != null;
-
-        FunctionalOperationContractPO po = new FunctionalOperationContractPO(proof.getInitConfig(), (FunctionalOperationContract) services.getSpecificationRepository().getContractPOForProof(services.getProof()).getContract());
-        po.registerClassAxiomTaclets(po.getContainerType(), proof.getInitConfig());
-        proof.getOpenGoal(proof.root()).indexOfTaclets().addTaclets(
-                po.getInitialTaclets()
-        );
-
-        return starter;
-    }
-
-
-    private Sequent prepareSequent(Sequent sequent) {
-        ImmutableList<SequentFormula> newAntecedent = removeForbiddenFromSemiSequent(sequent.antecedent());
-        ImmutableList<SequentFormula> newSuccedent = removeForbiddenFromSemiSequent(sequent.succedent());
-
-        return JavaDLSequentKit.createSequent(newAntecedent, newSuccedent);
-    }
-
-    private ImmutableList<SequentFormula> removeForbiddenFromSemiSequent(Semisequent semisequent) {
-        List<SequentFormula> newSemisequent = new ArrayList<>();
-        List<SequentFormula> thrownOut = new ArrayList<>();
-
-        for (SequentFormula sequentFormula : semisequent.asList()) {
-            if (formulaContainsForbidden(sequentFormula.formula())) {
-                thrownOut.add(sequentFormula);
-                continue;
-            }
-
-            newSemisequent.add(sequentFormula);
-        }
-
-        return ImmutableList.of(newSemisequent.toArray(new SequentFormula[0]));
-    }
-
+    /**
+     * Checks whether the given term contains a term that is irrelevant for the loop generation.
+     * @param term term to check
+     * @return true if the term contains a term that is irrelevant for the loop generation, false otherwise.
+     */
     private boolean formulaContainsForbidden(Term term) {
 
         if (term.op().name().toString().equals("measuredByEmpty")) {
             return true;
-//        } else if (term.sort().equals(services.getTypeConverter().getHeapLDT().targetSort())) {
-//            return true;
         } else if (term.op().name().toString().equals("self")) {
             return true;
         } else if (term.sort().name().toString().equals("Field") && !term.op().name().toString().equals("arr")) {
@@ -299,6 +245,12 @@ public class VerificationCondition {
         return false;
     }
 
+    /**
+     * Replace every occurrence of the fresh invariant in the verificaiton conditions's sequent
+     * with the invariant candidate.
+     * @param invariantCandidate the term to replace the invariant with
+     * @return the resulting sequent
+     */
     private Sequent insertCandidateIntoSequent(Term invariantCandidate) {
         List<SequentFormula> newAntecedent = new ArrayList<>();
         List<SequentFormula> newSuccedent = new ArrayList<>();
@@ -317,6 +269,12 @@ public class VerificationCondition {
         );
     }
 
+    /**
+     * Inserts the invariant candidate into the formula.
+     * @param invariantCandidate the term to insert into the formula.
+     * @param sequentFormula the formula to insert the invariant candidate into.
+     * @return the formula with the invariant candidate inserted.
+     */
     private SequentFormula insertCandidateIntoFormula(Term invariantCandidate, SequentFormula sequentFormula) {
         Term formula = sequentFormula.formula();
 
@@ -334,24 +292,6 @@ public class VerificationCondition {
         return new SequentFormula(insertedCandidate);
     }
 
-    private Term createQuantification(Term invariantCandidate) {
-        TermBuilder termBuilder = services.getTermBuilder();
-
-        List<QuantifiableVariable> quantVarsForTerm = new ArrayList<>();
-
-        for (Map.Entry<Name, LogicVariable> entry : quantVars.entrySet()) {
-            LogicVariable variable = entry.getValue();
-            Name name = entry.getKey();
-
-            invariantCandidate = termBuilder.replaceVariable(invariantCandidate, name, variable);
-            quantVarsForTerm.add(variable);
-        }
-
-        return termBuilder.all(quantVarsForTerm,
-                termBuilder.equals((JTerm) quantifiedInvariant, (JTerm) invariantCandidate));
-
-    }
-
     public Sequent getSequent() {
         return sequent;
     }
@@ -360,6 +300,11 @@ public class VerificationCondition {
         return vckind;
     }
 
+    /**
+     * Compare the original invariant placeholder with the initiation VC's placeholder invariant and reverse engineer
+     * the updates that have been applied to the invariant placeholder in the initiation VC.
+     * @return the updates that have been applied to the invariant placeholder in the initiation VC.
+     */
     public List<Tuple<Term, Term>> getInitUpdates() {
         List<Tuple<Term, Term>> result = new ArrayList<>();
         if (!vckind.equals(VCKind.INITIATION)) {
