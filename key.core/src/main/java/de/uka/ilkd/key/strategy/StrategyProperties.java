@@ -150,6 +150,9 @@ public final class StrategyProperties extends Properties {
      */
     public static final String SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_SIDE_PROOF =
         "SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_SIDE_PROOF";
+    public static final String SKOLEM_OPTIONS_KEY = "SKOLEM_OPTIONS_KEY";
+    public static final String SKOLEM_ON = "SKOLEM_ON";
+    public static final String SKOLEM_OFF = "SKOLEM_OFF";
 
     private static final String CATEGORY = "StrategyProperty";
 
@@ -183,7 +186,8 @@ public final class StrategyProperties extends Properties {
         SYMBOLIC_EXECUTION_ALIAS_CHECK_NEVER,
         SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_OPTIONS_KEY,
         SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_OFF,
-        SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_SIDE_PROOF };
+        SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_SIDE_PROOF,
+        SKOLEM_OPTIONS_KEY, SKOLEM_ON, SKOLEM_OFF};
 
     private static final Properties DEFAULT_MAP = new Properties();
     private static final Logger LOGGER = LoggerFactory.getLogger(StrategyProperties.class);
@@ -212,6 +216,7 @@ public final class StrategyProperties extends Properties {
             SYMBOLIC_EXECUTION_ALIAS_CHECK_NEVER);
         DEFAULT_MAP.setProperty(SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_OPTIONS_KEY,
             SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_OFF);
+        DEFAULT_MAP.setProperty(SKOLEM_OPTIONS_KEY, SKOLEM_ON);
     }
 
     public StrategyProperties() {
@@ -234,6 +239,7 @@ public final class StrategyProperties extends Properties {
         put(VBT_PHASE, DEFAULT_MAP.getProperty(VBT_PHASE));
         put(CLASS_AXIOM_OPTIONS_KEY, DEFAULT_MAP.getProperty(CLASS_AXIOM_OPTIONS_KEY));
         put(AUTO_INDUCTION_OPTIONS_KEY, DEFAULT_MAP.getProperty(AUTO_INDUCTION_OPTIONS_KEY));
+        put(SKOLEM_OPTIONS_KEY, DEFAULT_MAP.getProperty(SKOLEM_OPTIONS_KEY));
     }
 
     public static String userTacletsOptionsKey(int i) {
@@ -270,6 +276,7 @@ public final class StrategyProperties extends Properties {
             readSingleOption(p, SYMBOLIC_EXECUTION_ALIAS_CHECK_OPTIONS_KEY));
         sp.put(SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_OPTIONS_KEY,
             readSingleOption(p, SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_OPTIONS_KEY));
+        sp.put(SKOLEM_OPTIONS_KEY, readSingleOption(p, SKOLEM_OPTIONS_KEY));
         return sp;
     }
 
@@ -289,7 +296,7 @@ public final class StrategyProperties extends Properties {
     public static void setDefaultStrategyProperties(StrategyProperties sp,
             boolean quantifierInstantiationWithSplitting, boolean methodTreatmentContract,
             boolean loopTreatmentInvariant, boolean blockTreatmentContract,
-            boolean nonExecutionBranchHidingSideProofs, boolean aliasChecks) {
+            boolean nonExecutionBranchHidingSideProofs, boolean aliasChecks, boolean skolem) {
         // TODO (DS, 2017-05-11): Would be great to also use the loop scope
         // invariant for the SED. For this, one would
         // however have to change the SED's
@@ -329,6 +336,7 @@ public final class StrategyProperties extends Properties {
             nonExecutionBranchHidingSideProofs
                     ? SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_SIDE_PROOF
                     : SYMBOLIC_EXECUTION_NON_EXECUTION_BRANCH_HIDING_OFF);
+        sp.setProperty(SKOLEM_OPTIONS_KEY, skolem ? SKOLEM_ON : SKOLEM_OFF);
     }
 
 
@@ -424,6 +432,7 @@ public final class StrategyProperties extends Properties {
         p.put(STRATEGY_PROPERTY + VBT_PHASE, get(VBT_PHASE));
         p.put(STRATEGY_PROPERTY + AUTO_INDUCTION_OPTIONS_KEY, get(AUTO_INDUCTION_OPTIONS_KEY));
         p.put(STRATEGY_PROPERTY + CLASS_AXIOM_OPTIONS_KEY, get(CLASS_AXIOM_OPTIONS_KEY));
+        p.put(STRATEGY_PROPERTY + SKOLEM_OPTIONS_KEY, get(SKOLEM_OPTIONS_KEY));
         Object aliasCheckValue = get(SYMBOLIC_EXECUTION_ALIAS_CHECK_OPTIONS_KEY);
         if (aliasCheckValue != null) {
             p.put(STRATEGY_PROPERTY + SYMBOLIC_EXECUTION_ALIAS_CHECK_OPTIONS_KEY, aliasCheckValue);

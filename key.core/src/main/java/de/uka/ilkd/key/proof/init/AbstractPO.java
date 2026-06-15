@@ -328,7 +328,7 @@ public abstract class AbstractPO implements IPersistablePO {
      * @param selfKJT the {@link KeYJavaType} for which to collect all accessible class axioms
      * @param proofConfig the {@link InitConfig} of the proof for this PO
      */
-    private void registerClassAxiomTaclets(KeYJavaType selfKJT, InitConfig proofConfig) {
+    public void registerClassAxiomTaclets(KeYJavaType selfKJT, InitConfig proofConfig) {
         final ImmutableSet<ClassAxiom> axioms = selectClassAxioms(selfKJT);
         var choices = Collections.unmodifiableSet(proofConfig.getActivatedChoices().toSet());
         for (ClassAxiom axiom : axioms) {
@@ -402,7 +402,6 @@ public abstract class AbstractPO implements IPersistablePO {
             allSCCs.put(node, scc);
         }
     }
-
 
     // -------------------------------------------------------------------------
     // public interface

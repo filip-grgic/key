@@ -3,10 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-only */
 package de.uka.ilkd.key.logic;
 
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import de.uka.ilkd.key.java.Services;
 import de.uka.ilkd.key.java.TypeConverter;
@@ -28,10 +25,8 @@ import de.uka.ilkd.key.rule.inst.SVInstantiations.UpdateLabelPair;
 import de.uka.ilkd.key.speclang.HeapContext;
 import de.uka.ilkd.key.strategy.quantifierHeuristics.Metavariable;
 
-import org.key_project.logic.Name;
-import org.key_project.logic.Namespace;
-import org.key_project.logic.PosInTerm;
-import org.key_project.logic.TermCreationException;
+import org.key_project.logic.*;
+import org.key_project.logic.op.AbstractSortedOperator;
 import org.key_project.logic.op.Function;
 import org.key_project.logic.op.QuantifiableVariable;
 import org.key_project.logic.op.UpdateableOperator;
@@ -1299,6 +1294,29 @@ public class TermBuilder {
         }
     }
 
+    public JTerm sub(JTerm t1, JTerm t2) {
+        final IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        final JTerm zero = integerLDT.zero();
+        if (t2.equals(zero)) {
+            return t1;
+        } else if (t1.equals(zero)) {
+            return neg(t2);
+        } else {
+            return func(integerLDT.getSub(), t1, t2);
+        }
+    }
+
+    public JTerm neg(JTerm t1) {
+        final IntegerLDT integerLDT = services.getTypeConverter().getIntegerLDT();
+        if (t1.op().equals(integerLDT.getNumberSymbol())) {
+            if (t1.sub(0).op().equals(integerLDT.getNegativeNumberSign())) {
+                return func(integerLDT.getNumberSymbol(), t1.sub(0).sub(0));
+            }
+            return func(integerLDT.getNumberSymbol(), func(integerLDT.getNegativeNumberSign(), t1.sub(0)));
+        }
+        return func(integerLDT.getNeg(), t1);
+    }
+
     public JTerm inByte(JTerm var) {
         Function f = services.getNamespaces().functions().lookup(new Name("inByte"));
         return func(f, var);
@@ -2174,6 +2192,56 @@ public class TermBuilder {
 
         return tf.createTerm(term.op(), newSubs, term.boundVars(),
             term.getLabels());
+    }
+
+    /**
+     * Replaces all occurrences of variables with the given name in the term by the given new variable.
+     * @param term that may or may not contain occurrences of variables with the name oldVariableName
+     * @param oldVariableName the name of the variable that should be replaced
+     * @param newVariable the variable that should replace the old occurrences
+     * @return a term with the replaced occurrences
+     */
+    public Term replaceVariable(Term term, Name oldVariableName, AbstractSortedOperator newVariable) {
+
+        if (term.op().name().equals(oldVariableName)) {
+            if (newVariable instanceof LogicVariable) {
+                return services.getTermBuilder().var((LogicVariable) newVariable);
+            } else if (newVariable instanceof LocationVariable) {
+                return services.getTermBuilder().var((LocationVariable) newVariable);
+            }
+        } else if (term.arity() == 0) {
+            return term;
+        }
+
+        var oldSubs = term.subs();
+        JTerm[] newSubs = new JTerm[oldSubs.size()];
+        for (int i = 0; i < oldSubs.size(); i++) {
+            //TODO: Handle subs being null
+            newSubs[i] = (JTerm) replaceVariable(oldSubs.get(i), oldVariableName, newVariable);
+        }
+
+        return services.getTermFactory().createTerm(term.op(), newSubs);
+    }
+
+    public Term replaceContainingTerm(Term term, Term oldTerm, Term newTerm) {
+        if (term.equals(oldTerm) || (term.subs().isEmpty() && term.op().name().equals(oldTerm.op().name()))) {
+            return services.getTermFactory().createTerm((JTerm) newTerm);
+        }
+
+        var oldSubs = term.subs();
+        JTerm[] newSubs = new JTerm[oldSubs.size()];
+        for (int i = 0; i < oldSubs.size(); i++) {
+            //TODO: Handle subs being null
+            newSubs[i] = (JTerm) replaceContainingTerm(oldSubs.get(i), oldTerm, newTerm);
+        }
+
+        if (term.op().equals(Quantifier.ALL)) {
+            return all(term.boundVars().stream().map((qv -> (QuantifiableVariable) qv)).toList(), newSubs[0]);
+        } else if (term.op().equals(Quantifier.EX)) {
+            return ex(term.boundVars().stream().map((qv -> (QuantifiableVariable) qv)).toList(), newSubs[0]);
+        }
+
+        return services.getTermFactory().createTerm(term.op(), newSubs);
     }
 
     public ImmutableSet<JTerm> unionToSet(JTerm s) {

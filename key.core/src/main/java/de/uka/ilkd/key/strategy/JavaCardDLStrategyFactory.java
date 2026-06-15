@@ -366,20 +366,20 @@ public class JavaCardDLStrategyFactory implements StrategyFactory {
 
     private static OneOfStrategyPropertyDefinition getQueryTreatment() {
         final OneOfStrategyPropertyDefinition expandLocalQueries =
-            new OneOfStrategyPropertyDefinition(StrategyProperties.QUERYAXIOM_OPTIONS_KEY,
-                "Expand local queries:",
-                new StrategyPropertyValueDefinition(StrategyProperties.QUERYAXIOM_ON, "On",
-                    TOOL_TIP_EXPAND_LOCAL_QUERIES_ON),
-                new StrategyPropertyValueDefinition(StrategyProperties.QUERYAXIOM_OFF, "Off",
-                    TOOL_TIP_EXPAND_LOCAL_QUERIES_OFF));
+                new OneOfStrategyPropertyDefinition(StrategyProperties.QUERYAXIOM_OPTIONS_KEY,
+                        "Expand local queries:",
+                        new StrategyPropertyValueDefinition(StrategyProperties.QUERYAXIOM_ON, "On",
+                                TOOL_TIP_EXPAND_LOCAL_QUERIES_ON),
+                        new StrategyPropertyValueDefinition(StrategyProperties.QUERYAXIOM_OFF, "Off",
+                                TOOL_TIP_EXPAND_LOCAL_QUERIES_OFF));
         return new OneOfStrategyPropertyDefinition(StrategyProperties.QUERY_OPTIONS_KEY,
-            "Query treatment", new AbstractStrategyPropertyDefinition[] { expandLocalQueries },
-            new StrategyPropertyValueDefinition(StrategyProperties.QUERY_ON, "On",
-                TOOL_TIP_QUERY_ON),
-            new StrategyPropertyValueDefinition(StrategyProperties.QUERY_RESTRICTED, "Restricted",
-                TOOL_TIP_QUERY_RESTRICTED),
-            new StrategyPropertyValueDefinition(StrategyProperties.QUERY_OFF, "Off",
-                TOOL_TIP_QUERY_OFF));
+                "Query treatment", new AbstractStrategyPropertyDefinition[] { expandLocalQueries },
+                new StrategyPropertyValueDefinition(StrategyProperties.QUERY_ON, "On",
+                        TOOL_TIP_QUERY_ON),
+                new StrategyPropertyValueDefinition(StrategyProperties.QUERY_RESTRICTED, "Restricted",
+                        TOOL_TIP_QUERY_RESTRICTED),
+                new StrategyPropertyValueDefinition(StrategyProperties.QUERY_OFF, "Off",
+                        TOOL_TIP_QUERY_OFF));
     }
 
     private static OneOfStrategyPropertyDefinition getArithmeticTreatment() {
@@ -420,13 +420,22 @@ public class JavaCardDLStrategyFactory implements StrategyFactory {
 
     private static OneOfStrategyPropertyDefinition getAutoInduction() {
         return new OneOfStrategyPropertyDefinition(StrategyProperties.AUTO_INDUCTION_OPTIONS_KEY,
-            "Auto Induction",
-            new StrategyPropertyValueDefinition(StrategyProperties.AUTO_INDUCTION_LEMMA_ON, "On",
-                TOOL_TIP_AUTO_INDUCTION_ON),
-            new StrategyPropertyValueDefinition(StrategyProperties.AUTO_INDUCTION_RESTRICTED,
-                "Restricted", TOOL_TIP_AUTO_INDUCTION_RESTRICTED),
-            new StrategyPropertyValueDefinition(StrategyProperties.AUTO_INDUCTION_OFF, "Off",
-                TOOL_TIP_AUTO_INDUCTION_OFF));
+                "Auto Induction",
+                new StrategyPropertyValueDefinition(StrategyProperties.AUTO_INDUCTION_LEMMA_ON, "On",
+                        TOOL_TIP_AUTO_INDUCTION_ON),
+                new StrategyPropertyValueDefinition(StrategyProperties.AUTO_INDUCTION_RESTRICTED,
+                        "Restricted", TOOL_TIP_AUTO_INDUCTION_RESTRICTED),
+                new StrategyPropertyValueDefinition(StrategyProperties.AUTO_INDUCTION_OFF, "Off",
+                        TOOL_TIP_AUTO_INDUCTION_OFF));
+    }
+
+    private static OneOfStrategyPropertyDefinition getSkolem() {
+        return new OneOfStrategyPropertyDefinition(StrategyProperties.SKOLEM_OPTIONS_KEY,
+                "Skolemization",
+                new StrategyPropertyValueDefinition(StrategyProperties.SKOLEM_ON, "On",
+                        ""),
+                new StrategyPropertyValueDefinition(StrategyProperties.SKOLEM_OFF, "Off",
+                        ""));
     }
 
     private static OneOfStrategyPropertyDefinition getUserOptions() {
@@ -481,10 +490,11 @@ public class JavaCardDLStrategyFactory implements StrategyFactory {
         final OneOfStrategyPropertyDefinition classAxiom = getClassAxiom();
         final OneOfStrategyPropertyDefinition autoInduction = getAutoInduction();
         final OneOfStrategyPropertyDefinition userOptions = getUserOptions();
+        final OneOfStrategyPropertyDefinition skolem = getSkolem();
         // Model
         return new StrategySettingsDefinition("Java DL Options", stopAt, ossUsage, proofSplitting,
             loopTreatment, blockTreatment, methodTreatment, mergePointStatementTreatment,
             dependencyContracts, queryTreatment, arithmeticTreatment, quantifierTreatment,
-            classAxiom, autoInduction, userOptions);
+            classAxiom, autoInduction, skolem, userOptions);
     }
 }

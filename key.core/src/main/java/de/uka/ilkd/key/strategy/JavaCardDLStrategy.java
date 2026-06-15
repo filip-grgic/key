@@ -122,12 +122,12 @@ public class JavaCardDLStrategy extends AbstractFeatureStrategy {
 
         final Feature methodSpecF;
         final String methProp =
-            strategyProperties.getProperty(StrategyProperties.METHOD_OPTIONS_KEY);
+                strategyProperties.getProperty(StrategyProperties.METHOD_OPTIONS_KEY);
         switch (methProp) {
             case StrategyProperties.METHOD_CONTRACT ->
-                methodSpecF = methodSpecFeature(longConst(-20));
+                    methodSpecF = methodSpecFeature(longConst(-20));
             case StrategyProperties.METHOD_EXPAND, StrategyProperties.METHOD_NONE -> methodSpecF =
-                methodSpecFeature(inftyConst());
+                    methodSpecFeature(inftyConst());
             default -> {
                 methodSpecF = null;
                 assert false;
@@ -249,7 +249,19 @@ public class JavaCardDLStrategy extends AbstractFeatureStrategy {
 
         bindRuleSet(d, "closure", -15000);
         bindRuleSet(d, "alpha", -7000);
-        bindRuleSet(d, "delta", -6000);
+
+        final String skolemProp =
+                strategyProperties.getProperty(StrategyProperties.SKOLEM_OPTIONS_KEY);
+        switch (skolemProp) {
+            case StrategyProperties.SKOLEM_ON ->
+                    bindRuleSet(d, "delta", -6000);
+            case StrategyProperties.SKOLEM_OFF ->
+                    bindRuleSet(d, "delta", inftyConst());
+            default -> {
+                assert false;
+            }
+        }
+
         bindRuleSet(d, "simplify_boolean", -200);
 
         final Feature findDepthFeature =

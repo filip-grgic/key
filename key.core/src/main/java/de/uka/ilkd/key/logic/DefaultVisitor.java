@@ -11,4 +11,5 @@ import org.key_project.logic.Visitor;
  * This abstract Vistor class declares the interface for a common term visitor.
  */
 public interface DefaultVisitor extends Visitor<Term> {
+    void visit(Term visited);
 }
